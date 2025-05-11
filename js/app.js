@@ -1113,7 +1113,7 @@ function saveStringAsFile(content, fileName) {
 
 async function syncConfig() {
     const key = 'viewingHistory';
-    const baseURL = encodeURIComponent('https://mykv.tuqigo.workers.dev/viewingHistory/operation?key=viewingHistory');
+    const baseURL = encodeURIComponent('https://api.092201.xyz/viewingHistory/operation?key=viewingHistory');
     // await fetch(PROXY_URL + encodeURIComponent(apiUrl)
     // 1. 拉取远程配置
     let remoteList = [];
