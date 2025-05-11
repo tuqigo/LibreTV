@@ -1111,6 +1111,81 @@ function saveStringAsFile(content, fileName) {
     window.URL.revokeObjectURL(url);
 }
 
+async function syncConfig() {
+    const key = 'viewingHistory';
+    const baseURL = encodeURIComponent('https://mykv.tuqigo.workers.dev/viewingHistory/operation?key=viewingHistory');
+    // await fetch(PROXY_URL + encodeURIComponent(apiUrl)
+    // 1. 拉取远程配置
+    let remoteList = [];
+    try {
+        const res = await fetch(PROXY_URL + baseURL);
+        if (!res.ok) throw new Error(`GET ${res.status}`);
+        remoteList = await res.json();
+        if (!Array.isArray(remoteList)) remoteList = [];
+    } catch (e) {
+        console.warn('拉取远程 viewingHistory 失败，采用空列表：', e);
+    }
+
+    // 2. 读取本地配置
+    let localList = [];
+    try {
+        localList = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!Array.isArray(localList)) localList = [];
+    } catch {
+        localList = [];
+    }
+
+    // 3. 合并去重：先比 episodeIndex，大的保留；若相同再比 playbackPosition
+    const map = new Map();
+
+    function ingest(list) {
+        list.forEach(item => {
+            const id = `${item.title}||${item.sourceName}`;
+            const prev = map.get(id);
+            if (!prev) {
+                map.set(id, item);
+            } else {
+                // 先比较 episodeIndex
+                const curEp = item.episodeIndex || 0;
+                const prevEp = prev.episodeIndex || 0;
+                if (curEp > prevEp) {
+                    map.set(id, item);
+                } else if (curEp === prevEp) {
+                    // 再比较 playbackPosition
+                    const curPos = item.playbackPosition || 0;
+                    const prevPos = prev.playbackPosition || 0;
+                    if (curPos > prevPos) {
+                        map.set(id, item);
+                    }
+                }
+            }
+        });
+    }
+
+    ingest(remoteList);
+    ingest(localList);
+    const merged = Array.from(map.values());
+
+    // 4. 写回本地和远程
+    localStorage.setItem(key, JSON.stringify(merged));
+    try {
+        await fetch(PROXY_URL + baseURL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(merged),
+        });
+    } catch (e) {
+        console.error('同步远程 viewingHistory 失败：', e);
+    }
+
+    showToast('配置文件同步成功，3 秒后自动刷新本页面。', 'success');
+    // 5. 刷新页面
+    setTimeout(() => {
+        window.location.reload();
+    }, 3000);
+}
+
+
 // app.js 或路由文件中
 const authMiddleware = require('./middleware/auth');
 const config = require('./config');
