@@ -1164,7 +1164,9 @@ async function syncConfig() {
 
     ingest(remoteList);
     ingest(localList);
-    const merged = Array.from(map.values());
+    // 4. 按 timestamp 降序
+    const merged = Array.from(map.values())
+        .sort((a, b) => b.timestamp - a.timestamp);
 
     // 4. 写回本地和远程
     localStorage.setItem(key, JSON.stringify(merged));
