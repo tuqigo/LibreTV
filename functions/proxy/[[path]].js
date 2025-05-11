@@ -425,6 +425,30 @@ export async function onRequest(context) {
 
         logDebug(`收到代理请求: ${targetUrl}`);
 
+
+
+        
+        // === 增加这段：透传非 GET/HEAD/OPTIONS 请求 ===
+        if (request.method !== 'GET'
+            && request.method !== 'HEAD'
+            && request.method !== 'OPTIONS') {
+            // 构造到后端的同方法请求
+            const forwarded = new Request(targetUrl, {
+                method: request.method,
+                headers: request.headers,
+                body: request.body,
+                redirect: 'follow',
+            });
+            const resp = await fetch(forwarded);
+            const body = await resp.text();
+            // 原样返回状态码和头，并加上 CORS
+            return createResponse(body, resp.status, Object.fromEntries(resp.headers));
+        }
+
+
+
+        
+        
         // --- 缓存检查 (KV) ---
         const cacheKey = `proxy_raw:${targetUrl}`; // 使用原始内容的缓存键
         let kvNamespace = null;
