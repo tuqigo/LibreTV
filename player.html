@@ -1309,10 +1309,10 @@
             };
             
             // 如果外部定义了addToViewingHistory函数，则调用它
-            if (typeof addToViewingHistory === 'function') {
-                addToViewingHistory(videoInfo);
-                console.log(`已保存 "${currentVideoTitle}" 的历史记录, 集数数据: ${currentEpisodes.length}集`);
-            } else {
+            // if (typeof addToViewingHistory === 'function') {
+            //     addToViewingHistory(videoInfo);
+            //     console.log(`已保存 "${currentVideoTitle}" 的历史记录, 集数数据: ${currentEpisodes.length}集`);
+            // } else {
                 // 否则直接使用本地实现
                 try {
                     const history = JSON.parse(localStorage.getItem('viewingHistory') || '[]');
@@ -1357,7 +1357,7 @@
                 } catch (e) {
                     console.error('保存观看历史失败:', e);
                 }
-            }
+            // }
         }
 
         // 显示恢复位置提示
