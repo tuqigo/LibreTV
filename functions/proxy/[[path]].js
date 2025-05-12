@@ -431,7 +431,8 @@ export async function onRequest(context) {
         // === 增加这段：透传非 GET/HEAD/OPTIONS 请求 ===
         if (request.method !== 'GET'
             && request.method !== 'HEAD'
-            && request.method !== 'OPTIONS') {
+            && request.method !== 'OPTIONS'  
+            && targetUrl.includes('/my-db')) {
             // 构造到后端的同方法请求
             const forwarded = new Request(targetUrl, {
                 method: request.method,
