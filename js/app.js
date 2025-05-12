@@ -1113,8 +1113,12 @@ function saveStringAsFile(content, fileName) {
 
 async function syncConfig() {
     const key = 'viewingHistory';
-    const baseURL = encodeURIComponent('https://api.092201.xyz/my-db/viewingHistory/operation?key=viewingHistory');
-    // await fetch(PROXY_URL + encodeURIComponent(apiUrl)
+    const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
+    if (!appTuqiConfigName) {
+         showToast(`请先设置配置标识！`, 'warning');
+         return
+    }
+    const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appTuqiConfigName}_viewingHistory`);
     // 1. 拉取远程配置
     let remoteList = [];
     try {
