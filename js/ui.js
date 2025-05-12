@@ -446,7 +446,7 @@ function deleteHistoryItem(encodedUrl) {
         loadViewingHistory();
 
         // 显示成功提示
-        showToast('已删除该记录', 'success');
+        // showToast('已删除该记录', 'success');
     } catch (e) {
         console.error('删除历史记录项失败:', e);
         showToast('删除记录失败', 'error');
