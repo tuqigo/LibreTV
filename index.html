@@ -182,6 +182,14 @@
             <!-- 一般功能区域 -->
             <div class="p-3 bg-[#151515] rounded-lg shadow-inner">
                 <label class="block text-sm font-medium text-gray-400 mb-3 border-b border-[#333] pb-1">一般功能</label>
+                <!-- 配置标识 输入区 -->
+                <div class="mb-3 flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                    <input id="configNameInput" type="text"
+                        class="mb-2 sm:mb-0 flex-1 px-2 py-1 bg-[#222] text-white rounded-lg text-sm focus:outline-none disabled:opacity-50"
+                        disabled placeholder="请输入配置标识" />
+                    <button id="editConfigBtn"
+                        class="px-3 py-1 w-full sm:w-auto bg-[#444] hover:bg-[#555] text-white rounded-lg text-sm transition duration-200">编辑</button>
+                </div>                
                 <button onclick="importConfig()" class="px-4 py-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg mb-2">导入配置</button>
                 <button onclick="exportConfig()" class="px-4 py-2 mb-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">导出配置</button>
                 <button onclick="syncConfig()" class="px-4 py-2 mb-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">同步配置</button>
@@ -457,5 +465,35 @@
             }
         });
     </script>
+    <script>
+        const input = document.getElementById('configNameInput');
+        const editBtn = document.getElementById('editConfigBtn');
+
+        // 页面加载时初始化值
+        document.addEventListener('DOMContentLoaded', () => {
+            input.value = localStorage.getItem('appTuqiConfigName') || '';
+        });
+
+        // 编辑/保存 切换
+        editBtn.addEventListener('click', () => {
+            if (input.disabled) {
+                // 进入编辑状态
+                input.disabled = false;
+                input.classList.add('border', 'border-indigo-500');
+                input.focus();
+                editBtn.textContent = '保存';
+            } else {
+                // 点击保存
+                const val = input.value.trim();
+                if (val) {
+                    localStorage.setItem('appTuqiConfigName', val);
+                }
+                // 退出编辑状态
+                input.disabled = true;
+                input.classList.remove('border', 'border-indigo-500');
+                editBtn.textContent = '编辑';
+            }
+        });
+    </script>    
 </body>
 </html>
