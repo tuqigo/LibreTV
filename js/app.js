@@ -1140,7 +1140,7 @@ async function syncConfig() {
     }
 
     // 3. 合并去重：先比 episodeIndex，大的保留；若相同再比 playbackPosition
-    const map = new Map();
+    let map = new Map();
 
     function ingest(list) {
         list.forEach(item => {
@@ -1169,7 +1169,7 @@ async function syncConfig() {
     ingest(remoteList);
     ingest(localList);
     // 4. 按 timestamp 降序
-    const merged = Array.from(map.values())
+    let merged = Array.from(map.values())
         .sort((a, b) => b.timestamp - a.timestamp);
 
     // 👉 加入这段代码：过滤 deleteHistoryItems 中的 URL
