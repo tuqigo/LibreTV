@@ -355,6 +355,7 @@
     <script src="js/config.js"></script>
     <script src="js/password.js"></script>
     <script src="js/ui.js"></script>
+    <script src="js/tool.js"></script>
 
     <script>
         // 创建全局环境变量对象
@@ -1409,6 +1410,11 @@
             
             // 每30秒保存一次播放进度
             progressSaveInterval = setInterval(saveCurrentProgress, 30000);
+
+            // 每30秒同步一次播放历史
+            setInterval(() => {
+                syncConfig();
+            }, 30000);
         }
         
         // 保存当前播放进度
