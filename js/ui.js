@@ -442,6 +442,15 @@ function deleteHistoryItem(encodedUrl) {
         // 保存回localStorage
         localStorage.setItem('viewingHistory', JSON.stringify(newHistory));
 
+        // 从 localStorage 中读取 deleteHistoryItems（如果没有则初始化为空数组）
+        let deletedItems = JSON.parse(localStorage.getItem('deleteHistoryItems') || '[]');
+
+        // 如果当前 URL 不在已删除列表中，则添加进去
+        if (!deletedItems.includes(url)) {
+            deletedItems.push(url);
+            localStorage.setItem('deleteHistoryItems', JSON.stringify(deletedItems));
+        }
+
         // 重新加载历史记录显示
         loadViewingHistory();
 

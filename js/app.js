@@ -1172,6 +1172,17 @@ async function syncConfig() {
     const merged = Array.from(map.values())
         .sort((a, b) => b.timestamp - a.timestamp);
 
+    // 👉 加入这段代码：过滤 deleteHistoryItems 中的 URL
+    try {
+        const deletedUrls = JSON.parse(localStorage.getItem('deleteHistoryItems') || '[]');
+        if (Array.isArray(deletedUrls) && deletedUrls.length > 0) {
+            merged = merged.filter(item => !deletedUrls.includes(item.url));
+        }
+        localStorage.removeItem('deleteHistoryItems');
+    } catch (e) {
+        console.warn('读取 deleteHistoryItems 失败：', e);
+    }
+
     // 4. 写回本地和远程
     localStorage.setItem(key, JSON.stringify(merged));
     try {
