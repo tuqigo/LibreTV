@@ -1174,7 +1174,7 @@ async function syncConfig() {
 
     // 👉 加入这段代码：过滤 deleteHistoryItems 中的 URL
     try {
-        const deletedUrls = JSON.parse(localStorage.getItem('deleteHistoryItems') || '[]');
+        let deletedUrls = JSON.parse(localStorage.getItem('deleteHistoryItems') || '[]');
         if (Array.isArray(deletedUrls) && deletedUrls.length > 0) {
             merged = merged.filter(item => !deletedUrls.includes(item.url));
         }
