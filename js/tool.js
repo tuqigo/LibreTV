@@ -2,7 +2,9 @@ async function syncConfig(needShowToast = false) {
     const key = 'viewingHistory';
     const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
     if (!appTuqiConfigName) {
-        showToast(`请先设置配置标识！`, 'warning');
+        if (needShowToast) {
+            showToast(`请先设置配置标识！`, 'warning');
+        }
         return
     }
     const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appTuqiConfigName}_viewingHistory`);
