@@ -1,5 +1,5 @@
 // 全局变量
-let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["tyyszy","dyttzy", "bfzy", "ruyi"]'); // 默认选中天涯资源、暴风资源和如意资源
+let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["tyyszy","xiaomaomi","dyttzy", "bfzy", "ruyi"]'); // 默认选中天涯资源、暴风资源和如意资源
 let customAPIs = JSON.parse(localStorage.getItem('customAPIs') || '[]'); // 存储自定义API列表
 
 // 添加当前播放的集数索引
@@ -12,7 +12,7 @@ let currentVideoTitle = '';
 let episodesReversed = false;
 
 // 页面初始化
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
     // 初始化API复选框
     initAPICheckboxes();
 
@@ -28,35 +28,35 @@ document.addEventListener('DOMContentLoaded', function () {
     // 设置默认API选择（如果是第一次加载）
     if (!localStorage.getItem('hasInitializedDefaults')) {
         // 仅选择天涯资源、暴风资源和如意资源
-        selectedAPIs = ["tyyszy", "bfzy","dyttzy", "ruyi"];
+        selectedAPIs = ["tyyszy","xiaomaomi", "bfzy","dyttzy", "ruyi"];
         localStorage.setItem('selectedAPIs', JSON.stringify(selectedAPIs));
-
+        
         // 默认选中过滤开关
         localStorage.setItem('yellowFilterEnabled', 'true');
         localStorage.setItem(PLAYER_CONFIG.adFilteringStorage, 'true');
-
+        
         // 默认启用豆瓣功能
         localStorage.setItem('doubanEnabled', 'true');
 
         // 标记已初始化默认值
         localStorage.setItem('hasInitializedDefaults', 'true');
     }
-
+    
     // 设置黄色内容过滤开关初始状态
     const yellowFilterToggle = document.getElementById('yellowFilterToggle');
     if (yellowFilterToggle) {
         yellowFilterToggle.checked = localStorage.getItem('yellowFilterEnabled') === 'true';
     }
-
+    
     // 设置广告过滤开关初始状态
     const adFilterToggle = document.getElementById('adFilterToggle');
     if (adFilterToggle) {
         adFilterToggle.checked = localStorage.getItem(PLAYER_CONFIG.adFilteringStorage) !== 'false'; // 默认为true
     }
-
+    
     // 设置事件监听器
     setupEventListeners();
-
+    
     // 初始检查成人API选中状态
     setTimeout(checkAdultAPIsSelected, 100);
 });
@@ -74,14 +74,14 @@ function initAPICheckboxes() {
     normalTitle.className = 'api-group-title';
     normalTitle.textContent = '普通资源';
     normaldiv.appendChild(normalTitle);
-
+    
     // 创建普通API源的复选框
     Object.keys(API_SITES).forEach(apiKey => {
         const api = API_SITES[apiKey];
         if (api.adult) return; // 跳过成人内容API，稍后添加
-
+        
         const checked = selectedAPIs.includes(apiKey);
-
+        
         const checkbox = document.createElement('div');
         checkbox.className = 'flex items-center';
         checkbox.innerHTML = `
@@ -92,9 +92,9 @@ function initAPICheckboxes() {
             <label for="api_${apiKey}" class="ml-1 text-xs text-gray-400 truncate">${api.name}</label>
         `;
         normaldiv.appendChild(checkbox);
-
+        
         // 添加事件监听器
-        checkbox.querySelector('input').addEventListener('change', function () {
+        checkbox.querySelector('input').addEventListener('change', function() {
             updateSelectedAPIs();
             checkAdultAPIsSelected();
         });
@@ -126,14 +126,14 @@ function addAdultAPI() {
             </svg>
         </span>`;
         adultdiv.appendChild(adultTitle);
-
+        
         // 创建成人API源的复选框
         Object.keys(API_SITES).forEach(apiKey => {
             const api = API_SITES[apiKey];
             if (!api.adult) return; // 仅添加成人内容API
-
+            
             const checked = selectedAPIs.includes(apiKey);
-
+            
             const checkbox = document.createElement('div');
             checkbox.className = 'flex items-center';
             checkbox.innerHTML = `
@@ -144,9 +144,9 @@ function addAdultAPI() {
                 <label for="api_${apiKey}" class="ml-1 text-xs text-pink-400 truncate">${api.name}</label>
             `;
             adultdiv.appendChild(checkbox);
-
+            
             // 添加事件监听器
-            checkbox.querySelector('input').addEventListener('change', function () {
+            checkbox.querySelector('input').addEventListener('change', function() {
                 updateSelectedAPIs();
                 checkAdultAPIsSelected();
             });
@@ -159,30 +159,30 @@ function addAdultAPI() {
 function checkAdultAPIsSelected() {
     // 查找所有内置成人API复选框
     const adultBuiltinCheckboxes = document.querySelectorAll('#apiCheckboxes .api-adult:checked');
-
+    
     // 查找所有自定义成人API复选框
     const customApiCheckboxes = document.querySelectorAll('#customApisList .api-adult:checked');
-
+    
     const hasAdultSelected = adultBuiltinCheckboxes.length > 0 || customApiCheckboxes.length > 0;
-
+    
     const yellowFilterToggle = document.getElementById('yellowFilterToggle');
     const yellowFilterContainer = yellowFilterToggle.closest('div').parentNode;
     const filterDescription = yellowFilterContainer.querySelector('p.filter-description');
-
+    
     // 如果选择了成人API，禁用黄色内容过滤器
     if (hasAdultSelected) {
         yellowFilterToggle.checked = false;
         yellowFilterToggle.disabled = true;
         localStorage.setItem('yellowFilterEnabled', 'false');
-
+        
         // 添加禁用样式
         yellowFilterContainer.classList.add('filter-disabled');
-
+        
         // 修改描述文字
         if (filterDescription) {
             filterDescription.innerHTML = '<strong class="text-pink-300">选中黄色资源站时无法启用此过滤</strong>';
         }
-
+        
         // 移除提示信息（如果存在）
         const existingTooltip = yellowFilterContainer.querySelector('.filter-tooltip');
         if (existingTooltip) {
@@ -192,12 +192,12 @@ function checkAdultAPIsSelected() {
         // 启用黄色内容过滤器
         yellowFilterToggle.disabled = false;
         yellowFilterContainer.classList.remove('filter-disabled');
-
+        
         // 恢复原来的描述文字
         if (filterDescription) {
             filterDescription.innerHTML = '过滤"伦理片"等黄色内容';
         }
-
+        
         // 移除提示信息
         const existingTooltip = yellowFilterContainer.querySelector('.filter-tooltip');
         if (existingTooltip) {
@@ -210,12 +210,12 @@ function checkAdultAPIsSelected() {
 function renderCustomAPIsList() {
     const container = document.getElementById('customApisList');
     if (!container) return;
-
+    
     if (customAPIs.length === 0) {
         container.innerHTML = '<p class="text-xs text-gray-500 text-center my-2">未添加自定义API</p>';
         return;
     }
-
+    
     container.innerHTML = '';
     customAPIs.forEach((api, index) => {
         const apiItem = document.createElement('div');
@@ -489,13 +489,26 @@ function setupEventListeners() {
         }
     });
 
-    // 点击外部关闭设置面板
+    // 点击外部关闭设置面板和历史记录面板
     document.addEventListener('click', function(e) {
-        const panel = document.getElementById('settingsPanel');
-        const settingsButton = document.querySelector('button[onclick="toggleSettings(event)"]');
+        // 关闭设置面板
+        const settingsPanel = document.querySelector('#settingsPanel.show');
+        const settingsButton = document.querySelector('#settingsPanel .close-btn');
         
-        if (!panel.contains(e.target) && !settingsButton.contains(e.target) && panel.classList.contains('show')) {
-            panel.classList.remove('show');
+        if (settingsPanel && settingsButton &&
+            !settingsPanel.contains(e.target) &&
+            !settingsButton.contains(e.target)) {
+            settingsPanel.classList.remove('show');
+        }
+
+        // 关闭历史记录面板
+        const historyPanel = document.querySelector('#historyPanel.show');
+        const historyButton = document.querySelector('#historyPanel .close-btn');
+
+        if (historyPanel && historyButton &&
+            !historyPanel.contains(e.target) &&
+            !historyButton.contains(e.target)) {
+            historyPanel.classList.remove('show');
         }
     });
     
@@ -550,6 +563,19 @@ function resetSearchArea() {
     if (typeof updateDoubanVisibility === 'function') {
         updateDoubanVisibility();
     }
+
+    // 重置URL为主页
+    try {
+        window.history.pushState(
+            {},
+            `LibreTV - 免费在线视频搜索与观看平台`,
+            `/`
+        );
+        // 更新页面标题
+        document.title = `LibreTV - 免费在线视频搜索与观看平台`;
+    } catch (e) {
+        console.error('更新浏览器历史失败:', e);
+    }
 }
 
 // 获取自定义API信息
@@ -561,7 +587,7 @@ function getCustomApiInfo(customApiIndex) {
     return customAPIs[index];
 }
 
-// 搜索功能 - 修改为支持多选API
+// 搜索功能 - 修改为支持多选API和多页结果
 async function search() {
     // 密码保护校验
     if (window.isPasswordProtected && window.isPasswordVerified) {
@@ -609,34 +635,36 @@ async function search() {
         let allResults = [];
         const searchPromises = selectedAPIsNew.map(async (apiId) => {
             try {
-                let apiUrl, apiName;
-
+                let apiUrl, apiName, apiBaseUrl;
+                
                 // 处理自定义API
                 if (apiId.startsWith('custom_')) {
                     const customIndex = apiId.replace('custom_', '');
                     const customApi = getCustomApiInfo(customIndex);
                     if (!customApi) return [];
-
-                    apiUrl = customApi.url + API_CONFIG.search.path + encodeURIComponent(query);
+                    
+                    apiBaseUrl = customApi.url;
+                    apiUrl = apiBaseUrl + API_CONFIG.search.path + encodeURIComponent(query);
                     apiName = customApi.name;
                 } else {
                     // 内置API
                     if (!API_SITES[apiId]) return [];
-                    apiUrl = API_SITES[apiId].api + API_CONFIG.search.path + encodeURIComponent(query);
+                    apiBaseUrl = API_SITES[apiId].api;
+                    apiUrl = apiBaseUrl + API_CONFIG.search.path + encodeURIComponent(query);
                     apiName = API_SITES[apiId].name;
                 }
-
+                
                 // 添加超时处理
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 8000);
-
+                
                 const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl), {
                     headers: API_CONFIG.search.headers,
                     signal: controller.signal
                 });
-
+                
                 clearTimeout(timeoutId);
-
+                
                 if (!response.ok) {
                     return [];
                 }
@@ -647,7 +675,7 @@ async function search() {
                     return [];
                 }
                 
-                // 添加源信息到每个结果
+                // 处理第一页结果
                 const results = data.list.map(item => ({
                     ...item,
                     source_name: apiName,
@@ -655,6 +683,67 @@ async function search() {
                     api_url: apiId.startsWith('custom_') ? getCustomApiInfo(apiId.replace('custom_', ''))?.url : undefined
                 }));
                 
+                // 获取总页数
+                const pageCount = data.pagecount || 1;
+                // 确定需要获取的额外页数 (最多获取maxPages页)
+                const pagesToFetch = Math.min(pageCount - 1, API_CONFIG.search.maxPages - 1);
+
+                // 如果有额外页数，获取更多页的结果
+                if (pagesToFetch > 0) {
+                    const additionalPagePromises = [];
+
+                    for (let page = 2; page <= pagesToFetch + 1; page++) {
+                        // 构建分页URL
+                        const pageUrl = apiBaseUrl + API_CONFIG.search.pagePath
+                            .replace('{query}', encodeURIComponent(query))
+                            .replace('{page}', page);
+
+                        // 创建获取额外页的Promise
+                        const pagePromise = (async () => {
+                            try {
+                                const pageController = new AbortController();
+                                const pageTimeoutId = setTimeout(() => pageController.abort(), 8000);
+
+                                const pageResponse = await fetch(PROXY_URL + encodeURIComponent(pageUrl), {
+                                    headers: API_CONFIG.search.headers,
+                                    signal: pageController.signal
+                                });
+
+                                clearTimeout(pageTimeoutId);
+
+                                if (!pageResponse.ok) return [];
+
+                                const pageData = await pageResponse.json();
+
+                                if (!pageData || !pageData.list || !Array.isArray(pageData.list)) return [];
+
+                                // 处理当前页结果
+                                return pageData.list.map(item => ({
+                                    ...item,
+                                    source_name: apiName,
+                                    source_code: apiId,
+                                    api_url: apiId.startsWith('custom_') ? getCustomApiInfo(apiId.replace('custom_', ''))?.url : undefined
+                                }));
+                            } catch (error) {
+                                console.warn(`API ${apiId} 第${page}页搜索失败:`, error);
+                                return [];
+                            }
+                        })();
+
+                        additionalPagePromises.push(pagePromise);
+                    }
+
+                    // 等待所有额外页的结果
+                    const additionalResults = await Promise.all(additionalPagePromises);
+
+                    // 合并所有页的结果
+                    additionalResults.forEach(pageResults => {
+                        if (pageResults.length > 0) {
+                            results.push(...pageResults);
+                        }
+                    });
+                }
+
                 return results;
             } catch (error) {
                 console.warn(`API ${apiId} 搜索失败:`, error);
@@ -707,6 +796,23 @@ async function search() {
             return;
         }
 
+        // 有搜索结果时，才更新URL
+        try {
+            // 使用URI编码确保特殊字符能够正确显示
+            const encodedQuery = encodeURIComponent(query);
+            // 使用HTML5 History API更新URL，不刷新页面
+            window.history.pushState(
+                { search: query },
+                `搜索: ${query} - LibreTV`,
+                `/s=${encodedQuery}`
+            );
+            // 更新页面标题
+            document.title = `搜索: ${query} - LibreTV`;
+        } catch (e) {
+            console.error('更新浏览器历史失败:', e);
+            // 如果更新URL失败，继续执行搜索
+        }
+
         // 处理搜索结果过滤：如果启用了黄色内容过滤，则过滤掉分类含有敏感内容的项目
         const yellowFilterEnabled = localStorage.getItem('yellowFilterEnabled') === 'true';
         if (yellowFilterEnabled) {
@@ -718,7 +824,7 @@ async function search() {
         }
 
         // 添加XSS保护，使用textContent和属性转义
-        resultsDiv.innerHTML = allResults.map(item => {
+        const safeResults = allResults.map(item => {
             const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
             const safeName = (item.vod_name || '').toString()
                 .replace(/</g, '&lt;')
@@ -785,6 +891,8 @@ async function search() {
                 </div>
             `;
         }).join('');
+
+        resultsDiv.innerHTML = safeResults;
     } catch (error) {
         console.error('搜索错误:', error);
         if (error.name === 'AbortError') {
@@ -835,23 +943,23 @@ async function showDetails(id, vod_name, sourceCode) {
             // 内置API
             apiParams = '&source=' + sourceCode;
         }
-
+        
         const response = await fetch('/api/detail?id=' + encodeURIComponent(id) + apiParams);
-
+        
         const data = await response.json();
-
+        
         const modal = document.getElementById('modal');
         const modalTitle = document.getElementById('modalTitle');
         const modalContent = document.getElementById('modalContent');
-
+        
         // 显示来源信息
-        const sourceName = data.videoInfo && data.videoInfo.source_name ?
+        const sourceName = data.videoInfo && data.videoInfo.source_name ? 
             ` <span class="text-sm font-normal text-gray-400">(${data.videoInfo.source_name})</span>` : '';
-
+        
         // 不对标题进行截断处理，允许完整显示
         modalTitle.innerHTML = `<span class="break-words">${vod_name || '未知视频'}</span>${sourceName}`;
         currentVideoTitle = vod_name || '未知视频';
-
+        
         if (data.episodes && data.episodes.length > 0) {
             // 安全处理集数URL
             const safeEpisodes = data.episodes.map(url => {
@@ -954,9 +1062,28 @@ function playVideo(url, vod_name, sourceCode, episodeIndex = 0) {
     
     // 构建播放页面URL，传递必要参数
     const playerUrl = `player.html?url=${encodeURIComponent(url)}&title=${encodeURIComponent(videoTitle)}&index=${episodeIndex}&source=${encodeURIComponent(sourceName)}&source_code=${encodeURIComponent(sourceCode)}`;
-    
-    // 在当前标签页中打开播放页面
-    window.location.href = playerUrl;
+    showVideoPlayer(playerUrl);
+}
+
+// 弹出播放器页面
+function showVideoPlayer(url) {
+    // 临时隐藏搜索结果，防止高度超出播放器而出现滚动条
+    document.getElementById('resultsArea').classList.add('hidden');
+    // 在框架中打开播放页面
+    videoPlayerFrame = document.createElement('iframe');
+    videoPlayerFrame.id = 'VideoPlayerFrame';
+    videoPlayerFrame.className = 'fixed w-full h-screen z-40';
+    videoPlayerFrame.src = url;
+    document.body.appendChild(videoPlayerFrame);
+}
+
+// 关闭播放器页面
+function closeVideoPlayer() {
+    videoPlayerFrame = document.getElementById('VideoPlayerFrame');
+    if (videoPlayerFrame) {
+        videoPlayerFrame.remove();
+        document.getElementById('resultsArea').classList.remove('hidden');
+    }
 }
 
 // 播放上一集
@@ -1029,6 +1156,118 @@ function toggleEpisodeOrder(sourceCode) {
     }
 }
 
+// 从URL导入配置
+async function importConfigFromUrl() {
+    // 创建模态框元素
+    let modal = document.getElementById('importUrlModal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+
+    modal = document.createElement('div');
+    modal.id = 'importUrlModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40';
+
+    modal.innerHTML = `
+        <div class="bg-[#191919] rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto relative">
+            <button id="closeUrlModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+            
+            <h3 class="text-xl font-bold mb-4">从URL导入配置</h3>
+            
+            <div class="mb-4">
+                <input type="text" id="configUrl" placeholder="输入配置文件URL" 
+                       class="w-full px-3 py-2 bg-[#222] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+            </div>
+            
+            <div class="flex justify-end space-x-2">
+                <button id="confirmUrlImport" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">导入</button>
+                <button id="cancelUrlImport" class="bg-[#444] hover:bg-[#555] text-white px-4 py-2 rounded">取消</button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(modal);
+
+    // 关闭按钮事件
+    document.getElementById('closeUrlModal').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+
+    // 取消按钮事件
+    document.getElementById('cancelUrlImport').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+
+    // 确认导入按钮事件
+    document.getElementById('confirmUrlImport').addEventListener('click', async () => {
+        const url = document.getElementById('configUrl').value.trim();
+        if (!url) {
+            showToast('请输入配置文件URL', 'warning');
+            return;
+        }
+
+        // 验证URL格式
+        try {
+            const urlObj = new URL(url);
+            if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+                showToast('URL必须以http://或https://开头', 'warning');
+                return;
+            }
+        } catch (e) {
+            showToast('URL格式不正确', 'warning');
+            return;
+        }
+
+        showLoading('正在从URL导入配置...');
+
+        try {
+            // 获取配置文件 - 直接请求URL
+            const response = await fetch(url, {
+                mode: 'cors',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) throw '获取配置文件失败';
+
+            // 验证响应内容类型
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw '响应不是有效的JSON格式';
+            }
+
+            const config = await response.json();
+            if (config.name !== 'LibreTV-Settings') throw '配置文件格式不正确';
+
+            // 验证哈希
+            const dataHash = await sha256(JSON.stringify(config.data));
+            if (dataHash !== config.hash) throw '配置文件哈希值不匹配';
+
+            // 导入配置
+            for (let item in config.data) {
+                localStorage.setItem(item, config.data[item]);
+            }
+
+            showToast('配置文件导入成功，3 秒后自动刷新本页面。', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } catch (error) {
+            const message = typeof error === 'string' ? error : '导入配置失败';
+            showToast(`从URL导入配置出错 (${message})`, 'error');
+        } finally {
+            hideLoading();
+            document.body.removeChild(modal);
+        }
+    });
+
+    // 点击模态框外部关闭
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
 // 配置文件导入功能
 async function importConfig() {
     showImportBox(async (file) => {
@@ -1071,16 +1310,132 @@ async function importConfig() {
     });
 }
 
+// 从URL导入配置
+async function importConfigFromUrl() {
+    // 创建模态框元素
+    let modal = document.getElementById('importUrlModal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+
+    modal = document.createElement('div');
+    modal.id = 'importUrlModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-40';
+
+    modal.innerHTML = `
+        <div class="bg-[#191919] rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto relative">
+            <button id="closeUrlModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">&times;</button>
+            
+            <h3 class="text-xl font-bold mb-4">从URL导入配置</h3>
+            
+            <div class="mb-4">
+                <input type="text" id="configUrl" placeholder="输入配置文件URL" 
+                       class="w-full px-3 py-2 bg-[#222] border border-[#333] rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+            </div>
+            
+            <div class="flex justify-end space-x-2">
+                <button id="confirmUrlImport" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">导入</button>
+                <button id="cancelUrlImport" class="bg-[#444] hover:bg-[#555] text-white px-4 py-2 rounded">取消</button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(modal);
+
+    // 关闭按钮事件
+    document.getElementById('closeUrlModal').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+
+    // 取消按钮事件
+    document.getElementById('cancelUrlImport').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+
+    // 确认导入按钮事件
+    document.getElementById('confirmUrlImport').addEventListener('click', async () => {
+        const url = document.getElementById('configUrl').value.trim();
+        if (!url) {
+            showToast('请输入配置文件URL', 'warning');
+            return;
+        }
+
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            showToast('URL必须以http://或https://开头', 'warning');
+            return;
+        }
+
+        showLoading('正在从URL导入配置...');
+
+        try {
+            // 获取配置文件
+            const response = await fetch(PROXY_URL + encodeURIComponent(url));
+            if (!response.ok) throw '获取配置文件失败';
+
+            const config = await response.json();
+            if (config.name !== 'LibreTV-Settings') throw '配置文件格式不正确';
+
+            // 验证哈希
+            const dataHash = await sha256(JSON.stringify(config.data));
+            if (dataHash !== config.hash) throw '配置文件哈希值不匹配';
+
+            // 导入配置
+            for (let item in config.data) {
+                localStorage.setItem(item, config.data[item]);
+            }
+
+            showToast('配置文件导入成功，3 秒后自动刷新本页面。', 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } catch (error) {
+            const message = typeof error === 'string' ? error : '导入配置失败';
+            showToast(`从URL导入配置出错 (${message})`, 'error');
+        } finally {
+            hideLoading();
+            document.body.removeChild(modal);
+        }
+    });
+
+    // 点击模态框外部关闭
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
 // 配置文件导出功能
 async function exportConfig() {
     // 存储配置数据
     const config = {};
-
-    // 读取全部 localStorage 项
     const items = {};
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        items[key] = localStorage.getItem(key);
+
+    const settingsToExport = [
+        'selectedAPIs',
+        'customAPIs',
+        'yellowFilterEnabled',
+        'adFilteringEnabled',
+        'doubanEnabled',
+        'hasInitializedDefaults'
+    ];
+
+    // 导出设置项
+    settingsToExport.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value !== null) {
+            items[key] = value;
+        }
+    });
+
+    // 导出历史记录
+    const viewingHistory = localStorage.getItem('viewingHistory');
+    if (viewingHistory) {
+        items['viewingHistory'] = viewingHistory;
+    }
+
+    const searchHistory = localStorage.getItem(SEARCH_HISTORY_KEY);
+    if (searchHistory) {
+        items[SEARCH_HISTORY_KEY] = searchHistory;
     }
 
     const times = Date.now().toString();
