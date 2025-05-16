@@ -430,7 +430,7 @@
         window.addEventListener('DOMContentLoaded', async function() {
             try {
                 const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
-                if(!appTuqiConfigName){
+                if(appTuqiConfigName){
                     console.log("DOM加载完成后执行一次");
                     await syncConfig(false);
                     loadViewingHistory(); // 重新加载空的历史记录
