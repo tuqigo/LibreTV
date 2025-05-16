@@ -5,8 +5,14 @@
     <meta http-equiv="refresh" content="0; url=player.html">
     <title>重定向到播放器</title>
     <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/watch.css">
+    <script src="js/watch.js"></script>
 </head>
 <body>
-    <p>如果您没有被自动重定向，请<a href="player.html">点击这里</a>前往播放页面。</p>
+    <div class="redirect-container">
+        <div class="loading-animation"></div>
+        <div class="redirect-message">正在重定向到播放器...</div>
+        <p class="redirect-hint">如果页面没有自动跳转，请<a href="player.html" style="color: #00ccff;">点击这里</a></p>
+    </div>
 </body>
 </html>

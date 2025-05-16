@@ -6,177 +6,15 @@
     <title>LibreTV 播放器</title>
 
     <!-- Favicon -->
-    <link rel="icon" href="https://images.icon-icons.com/38/PNG/512/retrotv_5520.png">
-    <link rel="apple-touch-icon" href="https://images.icon-icons.com/38/PNG/512/retrotv_5520.png">
+    <link rel="icon" href="./image/retrotv_5520.png">
+    <link rel="apple-touch-icon" href="./image/retrotv_5520.png">
     <link rel="manifest" href="manifest.json">
 
     <script src="libs/tailwindcss.min.js"></script>
     <script src="js/wakelock.js"></script>
+<!--    <script src="js/version-check.js"></script>-->
     <link rel="stylesheet" href="css/styles.css">
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #0f1622;
-            color: white;
-        }
-        .player-container {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        #player {
-            width: 100%;
-            height: 60vh; /* 视频播放器高度 */
-        }
-        .loading-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            z-index: 100;
-            flex-direction: column;
-        }
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-            margin-bottom: 10px;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .error-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            z-index: 100;
-            flex-direction: column;
-            text-align: center;
-            padding: 1rem;
-        }
-        .error-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-        .episode-active {
-            background-color: #3b82f6 !important;
-            border-color: #60a5fa !important;
-        }
-        .episode-grid {
-            max-height: 30vh;
-            overflow-y: auto;
-        }
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 46px;
-            height: 24px;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #333;
-            transition: .4s;
-            border-radius: 24px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #00ccff;
-        }
-        input:checked + .slider:before {
-            transform: translateX(22px);
-        }
-        /* 添加快捷键提示样式 */
-        .shortcut-hint {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .shortcut-hint.show {
-            opacity: 1;
-        }
-
-        /* 原生全屏时，播放器容器铺满 */
-        .player-container:-webkit-full-screen,
-        .player-container:fullscreen {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            z-index: 10000;
-            background-color: #000;
-        }
-        .player-container:-webkit-full-screen #player,
-        .player-container:fullscreen #player {
-            width: 100%; height: 100%;
-        }
-        
-        /* 新增：移动端响应式样式 */
-        @media (max-width: 640px) {
-            .episode-grid {
-                max-height: 40vh; /* 移动端增加集数列表高度 */
-            }
-            
-            /* 改进移动端按钮显示 */
-            button {
-                white-space: nowrap;
-            }
-            
-            /* 控制栏在小屏幕上可能需要换行 */
-            .player-container .flex-wrap {
-                margin-bottom: 4px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="css/player.css">
 </head>
 <body>
     <header class="bg-[#111] p-4 flex items-center border-b border-[#333] gap-2 player-header">
@@ -189,13 +27,100 @@
             </a>
         </div>
         <h2 id="videoTitle" class="text-xl font-semibold flex-1 text-center overflow-x-auto whitespace-nowrap truncate custom-title-scroll"></h2>
-        <a href="/" class="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center min-w-0 home-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 21V9.5l-7-5-7 5V21a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2z" />
-              <path d="M9 22V12h6v10" />
+        <a href="#" id="goBack" onclick="goBack(event)" class="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center min-w-0 home-btn">
+            <svg class="w-5 h-5 mr-1" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.25 11h15a1.5 1.5 0 1 1 0 3H5.25a1.5 1.5 0 0 1 0-3z"/>
+                <path d="M5.55 12 11.3 17.3a1.5 1.5 0 1 1-2.12 2.12L3 12l6.18-6.18a1.5 1.5 0 1 1 2.12 2.12L5.55 12z"/>
             </svg>
-            <span class="home-btn-text">返回首页</span>
+            <span class="home-btn-text">上一页</span>
         </a>
+
+        <script>
+            // 改进返回功能
+            function goBack(e) {
+                e.preventDefault();
+
+                // 1. 首先检查是否从搜索页面进入的播放器 (优先使用localStorage中的记录)
+                const cameFromSearch = localStorage.getItem('cameFromSearch') === 'true';
+                const searchPageUrl = localStorage.getItem('searchPageUrl');
+
+                if (cameFromSearch && searchPageUrl) {
+                    console.log('返回搜索页面:', searchPageUrl);
+                    window.location.href = searchPageUrl;
+                    // 清除标记，避免下次返回仍然去搜索页
+                    localStorage.removeItem('cameFromSearch');
+                    return;
+                }
+
+                // 继续原有的返回逻辑...
+                const referrer = document.referrer;
+
+                // 检查referrer是否包含搜索参数
+                if (referrer && (referrer.includes('?s=') || referrer.includes('/s='))) {
+                    // 如果是从搜索页面来的，返回到搜索页面
+                    console.log('根据referrer返回搜索页面:', referrer);
+                    window.location.href = referrer;
+                    return;
+                }
+
+                // 2. 尝试从URL参数获取返回地址
+                const urlParams = new URLSearchParams(window.location.search);
+                const returnUrl = urlParams.get('returnUrl');
+
+                if (returnUrl) {
+                    // 存在明确的返回地址
+                    console.log('使用returnUrl参数返回:', returnUrl);
+                    window.location.href = returnUrl;
+                    return;
+                }
+
+                // 3. 如果是在iframe中打开的，尝试关闭iframe
+                if (closeEmbeddedPlayer()) {
+                    console.log('关闭了嵌入式播放器');
+                    return;
+                }
+
+                // 4. 其次尝试从localStorage中获取上一页URL
+                const lastPageUrl = localStorage.getItem('lastPageUrl');
+                if (lastPageUrl && lastPageUrl !== window.location.href) {
+                    console.log('从localStorage返回:', lastPageUrl);
+                    window.location.href = lastPageUrl;
+                    return;
+                }
+
+                // 5. 检查referrer是否是有效的站内页面
+                if (referrer &&
+                    referrer !== window.location.href &&
+                    (referrer.includes(window.location.hostname) || referrer.startsWith('/'))) {
+                    console.log('返回referrer页面:', referrer);
+                    window.location.href = referrer;
+                    return;
+                }
+
+                // 6. 都不满足时，返回首页
+                console.log('返回首页');
+                window.location.href = '/';
+            }
+
+            // 页面加载时保存当前URL到localStorage，作为返回目标
+            window.addEventListener('load', function() {
+                // 保存前一页面URL
+                if (document.referrer && document.referrer !== window.location.href) {
+                    localStorage.setItem('lastPageUrl', document.referrer);
+                }
+
+                // 提取当前URL中的重要参数，以便在需要时能够恢复当前页面
+                const urlParams = new URLSearchParams(window.location.search);
+                const videoId = urlParams.get('id');
+                const sourceCode = urlParams.get('source');
+
+                if (videoId && sourceCode) {
+                    // 保存当前播放状态，以便其他页面可以返回
+                    localStorage.setItem('currentPlayingId', videoId);
+                    localStorage.setItem('currentPlayingSource', sourceCode);
+                }
+            });
+        </script>
     </header>
 
     <!-- 密码验证弹窗 -->
@@ -277,7 +202,7 @@
                     <!-- 复制链接按钮 -->
                     <button title="复制播放链接" onclick="copyLinks()" class="px-2 py-1 bg-[#222] hover:bg-[#333] border border-[#333] text-white rounded-lg transition">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 012-2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                         </svg>
                     </button>
                     
@@ -335,7 +260,7 @@
                     <div class="mt-2 flex justify-center md:justify-end space-x-4">
                         <a href="about.html" class="text-gray-400 hover:text-white text-sm transition-colors">关于我们</a>
                         <a href="privacy.html" class="text-gray-400 hover:text-white text-sm transition-colors">隐私政策</a>
-                        <a href="https://help.unicef.org/#donation-form" target="_blank" rel="noopener" class="text-blue-400 hover:text-blue-300 text-sm transition-colors">捐赠</a>
+                        <a href="https://www.unicef.org/zh" target="_blank" rel="noopener" class="text-blue-400 hover:text-blue-300 text-sm transition-colors">捐赠</a>
                     </div>
                 </div>
             </div>
@@ -363,7 +288,58 @@
         
         // 注入服务器端环境变量 (将由服务器端替换)
         // PASSWORD 变量将在这里被服务器端注入
-        window.__ENV__.PASSWORD = "{{PASSWORD}}";
+        window.__ENV__.PASSWORD = "{{PASSWORD}}";        // 改进返回上一页功能
+        function goBack(event) {
+            // 防止默认链接行为
+            if (event) event.preventDefault();
+
+            // 1. 优先检查URL参数中的returnUrl
+            const urlParams = new URLSearchParams(window.location.search);
+            const returnUrl = urlParams.get('returnUrl');
+
+            if (returnUrl) {
+                // 如果URL中有returnUrl参数，优先使用
+                window.location.href = decodeURIComponent(returnUrl);
+                return;
+            }
+
+            // 2. 检查localStorage中保存的lastPageUrl
+            const lastPageUrl = localStorage.getItem('lastPageUrl');
+            if (lastPageUrl && lastPageUrl !== window.location.href) {
+                window.location.href = lastPageUrl;
+                return;
+            }
+
+            // 3. 检查是否是从搜索页面进入的播放器
+            const referrer = document.referrer;
+            
+            // 检查 referrer 是否包含搜索参数
+            if (referrer && (referrer.includes('/s=') || referrer.includes('?s='))) {
+                // 如果是从搜索页面来的，返回到搜索页面
+                window.location.href = referrer;
+                return;
+            }
+            
+            // 4. 如果是在iframe中打开的，尝试关闭iframe
+            if (window.self !== window.top) {
+                try {
+                    // 尝试调用父窗口的关闭播放器函数
+                    window.parent.closeVideoPlayer && window.parent.closeVideoPlayer();
+                    return;
+                } catch (e) {
+                    console.error('调用父窗口closeVideoPlayer失败:', e);
+                }
+            }
+            
+            // 5. 无法确定上一页，则返回首页
+            if (!referrer || referrer === '') {
+                window.location.href = '/';
+                return;
+            }
+
+            // 6. 以上都不满足，使用默认行为：返回上一页
+            window.history.back();
+        }
 
         // =================================
         // ============== PLAYER ==========
@@ -382,6 +358,7 @@
         let shortcutHintTimeout = null; // 用于控制快捷键提示显示时间
         let adFilteringEnabled = true; // 默认开启广告过滤
         let progressSaveInterval = null; // 定期保存进度的计时器
+        let currentVideoUrl = ''; // 记录当前实际的视频URL
 
         // 页面加载
         document.addEventListener('DOMContentLoaded', function() {
@@ -406,11 +383,55 @@
         function initializePageContent() {
             // 解析URL参数
             const urlParams = new URLSearchParams(window.location.search);
-            const videoUrl = urlParams.get('url');
+            let videoUrl = urlParams.get('url');
             const title = urlParams.get('title');
             const sourceCode = urlParams.get('source_code');
             let index = parseInt(urlParams.get('index') || '0');
-            const episodesList = urlParams.get('episodes'); // 新增：从URL获取集数信息
+            const episodesList = urlParams.get('episodes'); // 从URL获取集数信息
+            const savedPosition = parseInt(urlParams.get('position') || '0'); // 获取保存的播放位置
+              // 解决历史记录问题：检查URL是否是player.html开头的链接
+            // 如果是，说明这是历史记录重定向，需要解析真实的视频URL
+            if (videoUrl && videoUrl.includes('player.html')) {
+                console.log('检测到历史记录重定向URL:', videoUrl);
+                try {
+                    // 尝试从嵌套URL中提取真实的视频链接
+                    const nestedUrlParams = new URLSearchParams(videoUrl.split('?')[1]);
+                    // 从嵌套参数中获取真实视频URL
+                    const nestedVideoUrl = nestedUrlParams.get('url');
+                    // 检查嵌套URL是否包含播放位置信息
+                    const nestedPosition = nestedUrlParams.get('position');
+                    const nestedIndex = nestedUrlParams.get('index');
+                    const nestedTitle = nestedUrlParams.get('title');
+                    
+                    if (nestedVideoUrl) {
+                        videoUrl = nestedVideoUrl;
+                        console.log('已修正为真实视频URL:', videoUrl);
+                        
+                        // 更新当前URL参数
+                        const url = new URL(window.location.href);
+                        if (!urlParams.has('position') && nestedPosition) {
+                            url.searchParams.set('position', nestedPosition);
+                        }
+                        if (!urlParams.has('index') && nestedIndex) {
+                            url.searchParams.set('index', nestedIndex);
+                        }
+                        if (!urlParams.has('title') && nestedTitle) {
+                            url.searchParams.set('title', nestedTitle);
+                        }
+                        // 替换当前URL
+                        window.history.replaceState({}, '', url);
+                        console.log('从嵌套URL提取参数:', {position: nestedPosition, index: nestedIndex});
+                    } else {
+                        console.warn('无法从重定向URL中提取视频链接');
+                        showError('历史记录链接无效，请返回首页重新访问');
+                    }
+                } catch (e) {
+                    console.error('解析嵌套URL出错:', e);
+                }
+            }
+            
+            // 保存当前视频URL
+            currentVideoUrl = videoUrl || '';
 
             // 从localStorage获取数据
             currentVideoTitle = title || localStorage.getItem('currentVideoTitle') || '未知视频';
@@ -476,20 +497,6 @@
             // 初始化播放器
             if (videoUrl) {
                 initPlayer(videoUrl, sourceCode);
-                
-                // 尝试从URL参数中恢复播放位置
-                const position = urlParams.get('position');
-                if (position) {
-                    setTimeout(() => {
-                        if (dp && dp.video) {
-                            const positionNum = parseInt(position);
-                            if (!isNaN(positionNum) && positionNum > 0) {
-                                dp.seek(positionNum);
-                                showPositionRestoreHint(positionNum);
-                            }
-                        }
-                    }, 1500);
-                }
             } else {
                 showError('无效的视频链接');
             }
@@ -649,12 +656,12 @@
                 contextmenu: [                   // 自定义右键菜单
                     {
                         text: '关于 LibreTV',
-                        link: 'https://github.com/bestzwei/LibreTV'
+                        link: 'https://github.com/LibreSpark/LibreTV'
                     },
                     {
                         text: '问题反馈',
                         click: (player) => {
-                            window.open('https://github.com/bestzwei/LibreTV/issues', '_blank');
+                            window.open('https://github.com/LibreSpark/LibreTV/issues', '_blank');
                         }
                     }
                 ],
@@ -791,8 +798,7 @@
                     console.warn('当前浏览器不支持锁定屏幕方向，请手动旋转设备。');
                 }
             });
-            
-            // 全屏取消时解锁屏幕方向
+              // 全屏取消时解锁屏幕方向
             dp.on('fullscreen_cancel', () => {
                 if (window.screen.orientation && window.screen.orientation.unlock) {
                     window.screen.orientation.unlock();
@@ -802,8 +808,38 @@
             dp.on('loadedmetadata', function() {
                 document.getElementById('loading').style.display = 'none';
                 videoHasEnded = false; // 视频加载时重置结束标志
+
+                // 优先使用URL传递的position参数
+                const urlParams = new URLSearchParams(window.location.search);
+                const savedPosition = parseInt(urlParams.get('position') || '0');
                 
-                // 视频加载完成后重新设置进度条点击监听
+                if (savedPosition > 10 && dp && dp.video && dp.video.duration > 0 && savedPosition < dp.video.duration - 2) {
+                    // 如果URL中有有效的播放位置参数，直接使用它
+                    dp.seek(savedPosition);
+                    showPositionRestoreHint(savedPosition);
+                } else {
+                    // 否则尝试从本地存储恢复播放进度
+                    try {
+                        const progressKey = 'videoProgress_' + currentVideoUrl;
+                        const progressStr = localStorage.getItem(progressKey);
+                        if (progressStr && dp && dp.video && dp.video.duration > 0) {
+                            const progress = JSON.parse(progressStr);
+                            if (
+                                progress &&
+                                typeof progress.position === 'number' &&
+                                progress.position > 10 &&
+                                progress.position < dp.video.duration - 2
+                            ) {
+                                dp.seek(progress.position);
+                                showPositionRestoreHint(progress.position);
+                            }
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+
+                // 视频加载成功后重新设置进度条点击监听
                 setupProgressBarPreciseClicks();
                 
                 // 视频加载成功后，在稍微延迟后将其添加到观看历史
@@ -907,7 +943,7 @@
                     dp.fullScreen.toggle();
                 });
             });
-            
+
             // 10秒后如果仍在加载，但不立即显示错误
             setTimeout(function() {
                 // 如果视频已经播放开始，则不显示错误
@@ -1095,11 +1131,13 @@
             `;
             
             const url = currentEpisodes[index];
+            // 更新全局URL记录
+            currentVideoUrl = url;
             currentEpisodeIndex = index;
             videoHasEnded = false; // 重置视频结束标志
             
             // 获取当前URL参数，保留source参数
-            const urlParams = new URLSearchParams(window.location.search);
+            const urlParams = new URL(window.location.href);
             const sourceName = urlParams.get('source') || '';
             const sourceCode = urlParams.get('source_code') || '';
             
@@ -1113,7 +1151,14 @@
             if (sourceCode) {
                 newUrl.searchParams.set('source_code', sourceCode);
             }
-            window.history.pushState({}, '', newUrl);
+            
+            // 保留referrer参数，如果存在
+            const referrer = urlParams.get('referrer');
+            if (referrer) {
+                newUrl.searchParams.set('referrer', referrer);
+            }
+            
+            window.history.replaceState({}, '', newUrl);
             
             // 更新播放器
             if (dp) {
@@ -1284,9 +1329,10 @@
         
         // 在播放器初始化后添加视频到历史记录
         function saveToHistory() {
-            // 确保 currentEpisodes 非空
-            if (!currentEpisodes || currentEpisodes.length === 0) {
-                console.warn('没有可用的剧集列表，无法保存完整的历史记录');
+            // 确保 currentEpisodes 非空且有当前视频URL
+            if (!currentEpisodes || currentEpisodes.length === 0 || !currentVideoUrl) {
+                console.warn('没有可用的剧集列表或视频URL，无法保存完整的历史记录');
+                return;
             }
             
             // 尝试从URL中获取参数
@@ -1306,68 +1352,66 @@
             // 构建要保存的视频信息对象
             const videoInfo = {
                 title: currentVideoTitle,
-                // 创建基础URL，使用标题作为唯一标识符
-                url: `player.html?title=${encodeURIComponent(currentVideoTitle)}&source=${encodeURIComponent(sourceName)}&source_code=${encodeURIComponent(sourceCode)}`,
+                // 直接保存原始视频链接，而非播放页面链接
+                directVideoUrl: currentVideoUrl,
+                // 完整的播放器URL
+                url: `player.html?url=${encodeURIComponent(currentVideoUrl)}&title=${encodeURIComponent(currentVideoTitle)}&source=${encodeURIComponent(sourceName)}&source_code=${encodeURIComponent(sourceCode)}&index=${currentEpisodeIndex}&position=${Math.floor(currentPosition || 0)}`,
                 episodeIndex: currentEpisodeIndex,
                 sourceName: sourceName,
                 timestamp: Date.now(),
                 // 添加播放进度信息
-                playbackPosition: currentPosition > 10 ? currentPosition : 0,
+                playbackPosition: currentPosition,
                 duration: videoDuration,
                 // 重要：保存完整的集数列表，确保进行深拷贝
                 episodes: currentEpisodes && currentEpisodes.length > 0 ? [...currentEpisodes] : []
             };
             
-            // 如果外部定义了addToViewingHistory函数，则调用它
-            // if (typeof addToViewingHistory === 'function') {
-            //     addToViewingHistory(videoInfo);
-            //     console.log(`已保存 "${currentVideoTitle}" 的历史记录, 集数数据: ${currentEpisodes.length}集`);
-            // } else {
-                // 否则直接使用本地实现
-                try {
-                    const history = JSON.parse(localStorage.getItem('viewingHistory') || '[]');
-                    
-                    // 检查是否已经存在相同标题的记录（同一视频的不同集数）
-                    const existingIndex = history.findIndex(item => item.title === videoInfo.title);
-                    if (existingIndex !== -1) {
-                        // 存在则更新现有记录的集数、时间戳和URL
-                        history[existingIndex].episodeIndex = currentEpisodeIndex;
-                        history[existingIndex].timestamp = Date.now();
-                        history[existingIndex].sourceName = sourceName
-                        // 更新播放进度信息
-                        history[existingIndex].playbackPosition = currentPosition > 10 ? currentPosition : history[existingIndex].playbackPosition;
-                        history[existingIndex].duration = videoDuration || history[existingIndex].duration;
-                        // 同时更新URL以保存当前的集数状态
-                        history[existingIndex].url = window.location.href;
-                        // 更新集数列表（如果有且与当前不同）
-                        if (currentEpisodes && currentEpisodes.length > 0) {
-                            // 检查是否需要更新集数数据（针对不同长度的集数列表）
-                            if (!history[existingIndex].episodes || 
-                                !Array.isArray(history[existingIndex].episodes) || 
-                                history[existingIndex].episodes.length !== currentEpisodes.length) {
-                                history[existingIndex].episodes = [...currentEpisodes]; // 深拷贝
-                                console.log(`更新 "${currentVideoTitle}" 的剧集数据: ${currentEpisodes.length}集`);
-                            }
+            try {
+                // 获取现有历史记录
+                const history = JSON.parse(localStorage.getItem('viewingHistory') || '[]');
+                
+                // 检查是否已经存在相同标题的记录（同一视频的不同集数）
+                const existingIndex = history.findIndex(item => item.title === videoInfo.title);
+                if (existingIndex !== -1) {
+                    // 存在则更新现有记录的集数、时间戳和URL
+                    history[existingIndex].episodeIndex = currentEpisodeIndex;
+                    history[existingIndex].timestamp = Date.now();
+                    history[existingIndex].sourceName = sourceName;
+                    // 更新原始视频URL
+                    history[existingIndex].directVideoUrl = currentVideoUrl;
+                    // 更新播放进度信息
+                    history[existingIndex].playbackPosition = currentPosition > 10 ? currentPosition : history[existingIndex].playbackPosition;
+                    history[existingIndex].duration = videoDuration || history[existingIndex].duration;
+                    // 更新完整URL，确保带有正确的视频链接
+                    history[existingIndex].url = videoInfo.url;
+                    // 更新集数列表（如果有且与当前不同）
+                    if (currentEpisodes && currentEpisodes.length > 0) {
+                        // 检查是否需要更新集数数据（针对不同长度的集数列表）
+                        if (!history[existingIndex].episodes || 
+                            !Array.isArray(history[existingIndex].episodes) || 
+                            history[existingIndex].episodes.length !== currentEpisodes.length) {
+                            history[existingIndex].episodes = [...currentEpisodes]; // 深拷贝
+                            console.log(`更新 "${currentVideoTitle}" 的剧集数据: ${currentEpisodes.length}集`);
                         }
-                        
-                        // 移到最前面
-                        const updatedItem = history.splice(existingIndex, 1)[0];
-                        history.unshift(updatedItem);
-                    } else {
-                        // 添加新记录到最前面，但保存完整URL以便能直接打开到正确的集数
-                        videoInfo.url = window.location.href;
-                        console.log(`创建新的历史记录: "${currentVideoTitle}", ${currentEpisodes.length}集`);
-                        history.unshift(videoInfo);
                     }
                     
-                    // 限制历史记录数量为50条
-                    if (history.length > 50) history.splice(50);
-                    
-                    localStorage.setItem('viewingHistory', JSON.stringify(history));
-                } catch (e) {
-                    console.error('保存观看历史失败:', e);
+                    // 移到最前面
+                    const updatedItem = history.splice(existingIndex, 1)[0];
+                    history.unshift(updatedItem);
+                } else {
+                    // 添加新记录到最前面
+                    console.log(`创建新的历史记录: "${currentVideoTitle}", ${currentEpisodes.length}集`);
+                    history.unshift(videoInfo);
                 }
-            // }
+                
+                // 限制历史记录数量为50条
+                if (history.length > 50) history.splice(50);
+                
+                localStorage.setItem('viewingHistory', JSON.stringify(history));
+                console.log('成功保存历史记录');
+            } catch (e) {
+                console.error('保存观看历史失败:', e);
+            }
         }
 
         // 显示恢复位置提示
@@ -1610,8 +1654,22 @@
             const icon = document.getElementById('lockIcon');
             // 切换图标：锁 / 解锁
             icon.innerHTML = controlsLocked
-                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=\"M12 15v2m0-8V7a4 4 0 00-8 0v2m8 0H4v8h16v-8h-4z\"/>'
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=\"M12 15v2m0-8V7a4 4 0 00-8 0v2m8 0H4v8h16v-8H6v-6z\"/>'
                 : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=\"M15 11V7a3 3 0 00-6 0v4m-3 4h12v6H6v-6z\"/>';
+        }
+
+        // 支持在iframe中关闭播放器
+        function closeEmbeddedPlayer() {
+            try {
+                if (window.self !== window.top) {
+                    // 如果在iframe中，尝试调用父窗口的关闭方法
+                    window.parent.closeVideoPlayer && window.parent.closeVideoPlayer();
+                    return true;
+                }
+            } catch (e) {
+                console.error('尝试关闭嵌入式播放器失败:', e);
+            }
+            return false;
         }
     </script>
 </body>

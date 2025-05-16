@@ -1,7 +1,7 @@
 # LibreTV - 免费在线视频搜索与观看平台
 
 <div align="center">
-  <img src="https://images.icon-icons.com/38/PNG/512/retrotv_5520.png" alt="LibreTV Logo" width="120">
+  <img src="./image/retrotv_5520.png" alt="LibreTV Logo" width="120">
   <br>
   <p><strong>自由观影，畅享精彩</strong></p>
 </div>
@@ -29,6 +29,17 @@ LibreTV 是一个轻量级、免费的在线视频搜索与观看平台，提供
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FLibreSpark%2FLibreTV) [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/LibreSpark/LibreTV) 
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/LibreSpark/LibreTV) 
+
+## ⚠️ 请勿使用 Pull Bot 自动同步
+
+Pull Bot 会反复触发无效的 PR 和垃圾邮件，严重干扰项目维护。作者可能会直接拉黑所有 Pull Bot 自动发起的同步请求的仓库所有者。
+
+**推荐做法：**
+
+建议在 fork 的仓库中启用本仓库自带的 GitHub Actions 自动同步功能（见 `.github/workflows/sync.yml`）。 
+
+如需手动同步主仓库更新，也可以使用 GitHub 官方的 [Sync fork](https://docs.github.com/cn/github/collaborating-with-issues-and-pull-requests/syncing-a-fork) 功能。
+
 
 ## 📋 详细部署指南
 
@@ -145,22 +156,6 @@ LibreTV 支持标准的苹果 CMS V10 API 格式。添加自定义 API 时需遵
 - 服务端 HLS 代理和处理技术
 - localStorage 本地存储
 
-## 🔄 更新日志
-
-<details>
-  <summary>点击查看更新日志</summary>
-
-- **1.1.2** (2025-04-22): 新增豆瓣热门内容显示，设置中可开关
-- **1.1.1** (2025-04-19): 
-  - 修复 docker 部署时无法搜索的问题
-  - 修复播放页面进度保存与恢复的兼容性问题  
-- **1.1.0** (2025-04-17): 添加服务端代理功能，支持 HLS 流处理和解析，支持环境变量设置访问密码
-- **1.0.3** (2025-04-13): 性能优化、UI优化、更新设置功能
-- **1.0.2** (2025-04-08): 分离播放页面，优化视频源 API 兼容性
-- **1.0.1** (2025-04-07): 添加广告过滤功能，优化播放器性能
-- **1.0.0** (2025-04-06): 初始版本发布
-
-</details>
 
 ## ⚠️ 免责声明
 
@@ -172,4 +167,4 @@ LibreTV 仅作为视频搜索工具，不存储、上传或分发任何视频内
 
 如果您想支持本项目，可以考虑进行捐款：
 
-[![捐赠](https://img.shields.io/badge/捐赠-UNICEF-1a85ff?style=for-the-badge&logo=unicef)](https://help.unicef.org/#donation-form)
+[![捐赠](https://img.shields.io/badge/捐赠-UNICEF-1a85ff?style=for-the-badge&logo=unicef)](https://www.unicef.org/zh)
