@@ -85,10 +85,12 @@ async function syncConfig(needShowToast = false) {
     }
 
     if (needShowToast) {
-        showToast('配置文件同步成功，3 秒后自动刷新本页面。', 'success');
+        loadViewingHistory(); // 重新加载历史记录
+        showToast(`${appTuqiConfigName} 的历史播放记录已同步`, 'success');
+        // showToast('配置文件同步成功，3 秒后自动刷新本页面。', 'success');
         // 5. 刷新页面
-        setTimeout(() => {
-            window.location.reload();
-        }, 3000);
+        // setTimeout(() => {
+        //     window.location.reload();
+        // }, 3000);
     }
 }
