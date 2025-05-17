@@ -422,9 +422,9 @@
             try {
                 const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
                 if(appTuqiConfigName){
+                    document.getElementById('settingTitle').innerText = appTuqiConfigName+'的设置';
                     console.log("DOM加载完成后执行一次");
                     await syncConfig(false);
-                    loadViewingHistory(); // 重新加载空的历史记录
                 }
             } catch (error) {
                 console.error("异步方法执行出错:", error);
@@ -472,9 +472,6 @@
                 });
             }
         });
-    </script>
-    <script>
-        document.getElementById('settingTitle').innerText = localStorage.getItem("appTuqiConfigName")+'的设置';
     </script>
 </body>
 </html>
