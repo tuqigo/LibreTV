@@ -84,8 +84,9 @@ async function syncConfig(needShowToast = false) {
         console.error('同步远程 viewingHistory 失败：', e);
     }
 
+    loadViewingHistory(); // 重新加载历史记录
+
     if (needShowToast) {
-        loadViewingHistory(); // 重新加载历史记录
         showToast(`${appTuqiConfigName} 的历史播放记录已同步`, 'success');
         // showToast('配置文件同步成功，3 秒后自动刷新本页面。', 'success');
         // 5. 刷新页面
