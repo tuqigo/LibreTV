@@ -1,13 +1,13 @@
 async function syncConfig(needShowToast = false) {
     const key = 'viewingHistory';
-    const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
-    if (!appTuqiConfigName) {
+    const appUserName = localStorage.getItem('appUserName')
+    if (!appUserName) {
         if (needShowToast) {
             showToast(`请先设置配置标识！`, 'warning');
         }
         return
     }
-    const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appTuqiConfigName}_viewingHistory`);
+    const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appUserName}_viewingHistory`);
     // 1. 拉取远程配置
     let remoteList = [];
     try {
@@ -90,7 +90,7 @@ async function syncConfig(needShowToast = false) {
     loadViewingHistory(); // 重新加载历史记录
 
     if (needShowToast) {
-        showToast(`${appTuqiConfigName} 的历史播放记录已同步`, 'success');
+        showToast(`${appUserName} 的历史播放记录已同步`, 'success');
         // showToast('配置文件同步成功，3 秒后自动刷新本页面。', 'success');
         // 5. 刷新页面
         // setTimeout(() => {

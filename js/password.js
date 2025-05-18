@@ -138,7 +138,7 @@ async function handlePasswordSubmit() {
     if (username && password && await verifyPassword(password)) {
         hidePasswordError();
         hidePasswordModal();
-        localStorage.setItem("appTuqiConfigName", username)
+        localStorage.setItem("appUserName", username)
         document.getElementById('settingTitle').innerText = username+'的设置';
         // 触发密码验证成功事件
         document.dispatchEvent(new CustomEvent('passwordVerified'));

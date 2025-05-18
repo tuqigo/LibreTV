@@ -420,9 +420,9 @@
     <script>
         window.addEventListener('DOMContentLoaded', async function() {
             try {
-                const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
-                if(appTuqiConfigName){
-                    document.getElementById('settingTitle').innerText = appTuqiConfigName+'的设置';
+                const appUserName = localStorage.getItem('appUserName')
+                if(appUserName){
+                    document.getElementById('settingTitle').innerText = appUserName+'的设置';
                     console.log("DOM加载完成后执行一次");
                     await syncConfig(false);
                 }
