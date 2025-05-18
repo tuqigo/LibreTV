@@ -1,13 +1,13 @@
 async function syncConfig(needShowToast = false) {
     const key = 'viewingHistory';
-    const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
-    if (!appTuqiConfigName) {
+    const appUserName = localStorage.getItem('appUserName')
+    if (!appUserName) {
         if (needShowToast) {
             showToast(`请先设置配置标识！`, 'warning');
         }
         return
     }
-    const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appTuqiConfigName}_viewingHistory`);
+    const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appUserName}_viewingHistory`);
     // 1. 拉取远程配置
     let remoteList = [];
     try {
@@ -75,18 +75,22 @@ async function syncConfig(needShowToast = false) {
     // 4. 写回本地和远程
     localStorage.setItem(key, JSON.stringify(merged));
     try {
-        await fetch(PROXY_URL + baseURL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(merged),
-        });
+        // 本地不为空，才需要写远程 todo 后期可以设置本地和远程的merger通过算法计算是否需要写远程
+        if (localList.length > 0) {
+            await fetch(PROXY_URL + baseURL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(merged),
+            });
+        }
     } catch (e) {
         console.error('同步远程 viewingHistory 失败：', e);
     }
 
+    loadViewingHistory(); // 重新加载历史记录
+
     if (needShowToast) {
-        loadViewingHistory(); // 重新加载历史记录
-        showToast(`${appTuqiConfigName} 的历史播放记录已同步`, 'success');
+        showToast(`${appUserName} 的历史播放记录已同步`, 'success');
         // showToast('配置文件同步成功，3 秒后自动刷新本页面。', 'success');
         // 5. 刷新页面
         // setTimeout(() => {

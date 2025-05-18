@@ -75,7 +75,7 @@
     <!-- 设置面板 -->
     <div id="settingsPanel" class="settings-panel fixed right-0 top-0 h-full w-80 bg-[#111] border-l border-[#333] p-6 z-40 overflow-y-auto" aria-label="设置面板" aria-hidden="true">
         <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-bold gradient-text">设置</h3>
+            <h3 id="settingTitle" class="text-xl font-bold gradient-text">设置</h3>
             <button onclick="toggleSettings()" class="text-gray-400 hover:text-white" aria-label="关闭设置">&times;</button>
         </div>
         <div class="space-y-5">
@@ -182,17 +182,8 @@
             <!-- 一般功能区域 -->
             <div class="p-3 bg-[#151515] rounded-lg shadow-inner">
                 <label class="block text-sm font-medium text-gray-400 mb-3 border-b border-[#333] pb-1">一般功能</label>
-                <!-- 配置标识 输入区 -->
-                <div class="mb-3 flex flex-col sm:flex-row sm:items-center sm:space-x-2">
-                    <input id="configNameInput" type="text"
-                        class="mb-2 sm:mb-0 flex-1 px-2 py-1 bg-[#222] text-white rounded-lg text-sm focus:outline-none disabled:opacity-50"
-                        disabled placeholder="请输入配置标识" />
-                    <button id="editConfigBtn"
-                        class="px-3 py-1 w-full sm:w-auto bg-[#444] hover:bg-[#555] text-white rounded-lg text-sm transition duration-200">编辑</button>
-                </div>
                 <!-- <button onclick="importConfig()" class="px-4 py-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg mb-2">导入配置</button> -->
                 <!-- <button onclick="exportConfig()" class="px-4 py-2 mb-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">导出配置</button> -->
-                <button onclick="syncConfig(true)" class="px-4 py-2 mb-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">同步历史播放记录</button>
                 <button onclick="clearLocalStorage()" class="px-4 py-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">清除页面缓存</button>
             </div>
         </div>
@@ -346,12 +337,12 @@
             </div>
             <div class="mb-6">
                 <p class="text-gray-300 mb-4">请输入密码继续访问</p>
-                <form id="passwordForm" onsubmit="handlePasswordSubmit(); return false;">
-                    <input type="text" name="username" id="username" autocomplete="username" style="display:none" tabindex="-1" aria-hidden="true">
+                <form id="passwordForm" class="space-y-2" onsubmit="handlePasswordSubmit(); return false;">
+                    <input type="text" id="usernameInput" class="w-full bg-[#111] border border-[#333] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-white transition-colors" placeholder="用户名..." autocomplete="new-username">
                     <input type="password" id="passwordInput" class="w-full bg-[#111] border border-[#333] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-white transition-colors" placeholder="密码..." autocomplete="new-password">
                     <button id="passwordSubmitBtn" type="submit" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">提交</button>
                 </form>
-                <p id="passwordError" class="text-red-500 mt-2 hidden">密码错误，请重试</p>
+                <p id="passwordError" class="text-red-500 mt-2 hidden">用户名密码错误，请重试</p>
             </div>
         </div>
     </div>
@@ -429,11 +420,11 @@
     <script>
         window.addEventListener('DOMContentLoaded', async function() {
             try {
-                const appTuqiConfigName = localStorage.getItem('appTuqiConfigName')
-                if(appTuqiConfigName){
+                const appUserName = localStorage.getItem('appUserName')
+                if(appUserName){
+                    document.getElementById('settingTitle').innerText = appUserName+'的设置';
                     console.log("DOM加载完成后执行一次");
                     await syncConfig(false);
-                    loadViewingHistory(); // 重新加载空的历史记录
                 }
             } catch (error) {
                 console.error("异步方法执行出错:", error);
@@ -479,36 +470,6 @@
                     // 隐藏弹窗
                     disclaimerModal.style.display = 'none';
                 });
-            }
-        });
-    </script>
-    <script>
-        const input = document.getElementById('configNameInput');
-        const editBtn = document.getElementById('editConfigBtn');
-
-        // 页面加载时初始化值
-        document.addEventListener('DOMContentLoaded', () => {
-            input.value = localStorage.getItem('appTuqiConfigName') || '';
-        });
-
-        // 编辑/保存 切换
-        editBtn.addEventListener('click', () => {
-            if (input.disabled) {
-                // 进入编辑状态
-                input.disabled = false;
-                input.classList.add('border', 'border-indigo-500');
-                input.focus();
-                editBtn.textContent = '保存';
-            } else {
-                // 点击保存
-                const val = input.value.trim();
-                if (val) {
-                    localStorage.setItem('appTuqiConfigName', val);
-                }
-                // 退出编辑状态
-                input.disabled = true;
-                input.classList.remove('border', 'border-indigo-500');
-                editBtn.textContent = '编辑';
             }
         });
     </script>
