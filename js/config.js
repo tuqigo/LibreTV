@@ -69,11 +69,11 @@ const API_SITES = {
         api: 'https://dbzy.com',
         name: '豆瓣资源',
     },
-    huya: {
-        api: 'https://www.huyaapi.com',
-        name: '虎牙资源',
-        detail: 'https://www.huyaapi.com',
-    },
+    // huya: {
+    //     api: 'https://www.huyaapi.com',
+    //     name: '虎牙资源',
+    //     detail: 'https://www.huyaapi.com',
+    // },
     mozhua: {
         api: 'https://mozhuazy.com',
         name: '魔爪资源',
