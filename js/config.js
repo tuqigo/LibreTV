@@ -21,11 +21,11 @@ const SITE_CONFIG = {
 
 // API站点配置
 const API_SITES = {
-    heimuer: {
-        api: 'https://json.heimuer.xyz',
-        name: '黑木耳',
-        detail: 'https://heimuer.tv',
-    },
+    // heimuer: {
+    //     api: 'https://json.heimuer.xyz',
+    //     name: '黑木耳',
+    //     detail: 'https://heimuer.tv',
+    // },
     dyttzy: {
         api: 'http://caiji.dyttzyapi.com',
         name: '电影天堂资源',
@@ -43,6 +43,10 @@ const API_SITES = {
         api: 'https://tyyszy.com',
         name: '天涯资源',
     },
+    // xiaomaomi: {
+    //     api: 'https://zy.xmm.hk',
+    //     name: '小猫咪资源',
+    // },
     ffzy: {
         api: 'http://ffzy5.tv',
         name: '非凡影视',
@@ -52,6 +56,10 @@ const API_SITES = {
         api: 'https://360zy.com',
         name: '360资源',
     },
+    // iqiyi: {
+    //     api: 'https://www.iqiyizyapi.com',
+    //     name: 'iqiyi资源',
+    // },
     wolong: {
         api: 'https://wolongzyw.com',
         name: '卧龙资源',
@@ -82,30 +90,34 @@ const API_SITES = {
         api: 'https://www.mdzyapi.com',
         name: '魔都资源',
     },
-    zuid: {
-        api: 'https://api.zuidapi.com',
-        name: '最大资源'
-    },
-    yinghua: {
-        api: 'https://m3u8.apiyhzy.com',
-        name: '樱花资源'
-    },
-    baidu: {
-        api: 'https://api.apibdzy.com',
-        name: '百度云资源'
-    },
-    wujin: {
-        api: 'https://api.wujinapi.me',
-        name: '无尽资源'
-    },
-    wwzy: {
-        api: 'https://wwzy.tv',
-        name: '旺旺短剧'
-    },
-    ikun: {
-        api: 'https://ikunzyapi.com',
-        name: 'iKun资源'
-    },
+    // zuid: {
+    //     api: 'https://api.zuidapi.com',
+    //     name: '最大资源'
+    // },
+
+    // 以下使用短剧场景
+    // yinghua: {
+    //     api: 'https://m3u8.apiyhzy.com',
+    //     name: '樱花资源'
+    // },
+    // baidu: {
+    //     api: 'https://api.apibdzy.com',
+    //     name: '百度云资源'
+    // },
+    // wujin: {
+    //     api: 'https://api.wujinapi.me',
+    //     name: '无尽资源'
+    // },
+    // wwzy: {
+    //     api: 'https://wwzy.tv',
+    //     name: '旺旺短剧'
+    // },
+    // ikun: {
+    //     api: 'https://ikunzyapi.com',
+    //     name: 'iKun资源'
+    // },
+
+
     // 下面是一些成人内容的API源，默认隐藏，使用本项目浏览黄色内容违背项目初衷
     // 互联网上传播的色情内容将人彻底客体化、工具化，是性别解放和人类平等道路上的巨大障碍。
     // 这些黄色影片是资本主义父权制压迫的最恶毒体现，它将暴力和屈辱商品化，践踏人的尊严，对受害者造成无法弥愈的伤害，并毒害社会关系。
@@ -174,7 +186,7 @@ const AGGREGATED_SEARCH_CONFIG = {
 // 抽象API请求配置
 const API_CONFIG = {
     search: {
-    	// 修改搜索接口为返回更多详细数据（包括视频封面、简介和播放列表）
+        // 修改搜索接口为返回更多详细数据（包括视频封面、简介和播放列表）
         path: '/api.php/provide/vod/?ac=videolist&wd=',
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -182,7 +194,7 @@ const API_CONFIG = {
         }
     },
     detail: {
-    	// 修改详情接口也使用videolist接口，但是通过ID查询，减少请求次数
+        // 修改详情接口也使用videolist接口，但是通过ID查询，减少请求次数
         path: '/api.php/provide/vod/?ac=videolist&ids=',
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
