@@ -908,7 +908,7 @@ async function search() {
 
             return `
                 <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md" 
-                     onclick="showDetails('${safeId}','${safeName}','${sourceCode}')" ${apiUrlAttr}>
+                     onclick="checkAndPlayVideo('${safeId}','${safeName}','${sourceCode}')" ${apiUrlAttr}>
                     <div class="flex h-full">
                         ${hasCover ? `
                         <div class="relative flex-shrink-0 search-card-img-container">
@@ -965,6 +965,95 @@ async function search() {
         }
     } finally {
         hideLoading();
+    }
+}
+
+// 检查视频集数并决定直接播放还是显示详情
+async function checkAndPlayVideo(id, vod_name, sourceCode) {
+    // 密码保护校验
+    if (window.isPasswordProtected && window.isPasswordVerified) {
+        if (window.isPasswordProtected() && !window.isPasswordVerified()) {
+            showPasswordModal && showPasswordModal();
+            return;
+        }
+    }
+    if (!id) {
+        showToast('视频ID无效', 'error');
+        return;
+    }
+
+    showLoading();
+    try {
+        // 构建API参数
+        let apiParams = '';
+
+        // 处理自定义API源
+        if (sourceCode.startsWith('custom_')) {
+            const customIndex = sourceCode.replace('custom_', '');
+            const customApi = getCustomApiInfo(customIndex);
+            if (!customApi) {
+                showToast('自定义API配置无效', 'error');
+                hideLoading();
+                return;
+            }
+            // 传递 detail 字段
+            if (customApi.detail) {
+                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&customDetail=' + encodeURIComponent(customApi.detail) + '&source=custom';
+            } else {
+                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&source=custom';
+            }
+        } else {
+            // 内置API
+            apiParams = '&source=' + sourceCode;
+        }
+
+        const response = await fetch('/api/detail?id=' + encodeURIComponent(id) + apiParams);
+        const data = await response.json();
+
+        if (data.episodes && data.episodes.length > 0) {
+            // 安全处理集数URL
+            const safeEpisodes = data.episodes.map(url => {
+                try {
+                    // 确保URL是有效的并且是http或https开头
+                    return url && (url.startsWith('http://') || url.startsWith('https://'))
+                        ? url.replace(/"/g, '&quot;')
+                        : '';
+                } catch (e) {
+                    return '';
+                }
+            }).filter(url => url); // 过滤掉空URL
+
+            // 保存当前视频的所有集数
+            currentEpisodes = safeEpisodes;
+            currentVideoTitle = vod_name || '未知视频';
+
+            // 如果只有一集，直接播放
+            if (safeEpisodes.length === 1) {
+                hideLoading();
+                // 获取来源名称
+                let sourceName = '';
+                if (sourceCode && !sourceCode.startsWith('custom_')) {
+                    sourceName = API_SITES[sourceCode] ? API_SITES[sourceCode].name : '';
+                } else if (sourceCode && sourceCode.startsWith('custom_')) {
+                    const customIndex = sourceCode.replace('custom_', '');
+                    const customApi = getCustomApiInfo(customIndex);
+                    sourceName = customApi ? customApi.name : '';
+                }
+                playVideo(safeEpisodes[0], vod_name, sourceCode, 0, sourceName);
+                return;
+            }
+
+            // 如果有多集，显示详情页面
+            hideLoading();
+            showDetails(id, vod_name, sourceCode);
+        } else {
+            hideLoading();
+            showToast('没有找到可播放的视频', 'error');
+        }
+    } catch (error) {
+        console.error('获取视频信息错误:', error);
+        hideLoading();
+        showToast('获取视频信息失败，请稍后重试', 'error');
     }
 }
 
@@ -1071,7 +1160,7 @@ async function showDetails(id, vod_name, sourceCode) {
 }
 
 // 更新播放视频函数，修改为在新标签页中打开播放页面，并保存到历史记录
-function playVideo(url, vod_name, sourceCode, episodeIndex = 0) {
+function playVideo(url, vod_name, sourceCode, episodeIndex = 0, sourceName = '') {
     // 密码保护校验
     if (window.isPasswordProtected && window.isPasswordVerified) {
         if (window.isPasswordProtected() && !window.isPasswordVerified()) {
@@ -1084,19 +1173,29 @@ function playVideo(url, vod_name, sourceCode, episodeIndex = 0) {
         return;
     }
 
-    // 获取当前视频来源名称（从模态框标题中提取）
-    let sourceName = '';
-    const modalTitle = document.getElementById('modalTitle');
-    if (modalTitle) {
-        const sourceSpan = modalTitle.querySelector('span.text-gray-400');
-        if (sourceSpan) {
-            // 提取括号内的来源名称, 例如从 "(黑木耳)" 提取 "黑木耳"
-            const sourceText = sourceSpan.textContent;
-            const match = sourceText.match(/\(([^)]+)\)/);
-            if (match && match[1]) {
-                sourceName = match[1].trim();
+    // 如果没有传入sourceName，则从模态框标题中提取
+    if (!sourceName) {
+        const modalTitle = document.getElementById('modalTitle');
+        if (modalTitle) {
+            const sourceSpan = modalTitle.querySelector('span.text-gray-400');
+            if (sourceSpan) {
+                // 提取括号内的来源名称, 例如从 "(黑木耳)" 提取 "黑木耳"
+                const sourceText = sourceSpan.textContent;
+                const match = sourceText.match(/\(([^)]+)\)/);
+                if (match && match[1]) {
+                    sourceName = match[1].trim();
+                }
             }
         }
+    }
+
+    // 如果还是没有获取到来源名称，尝试从API_SITES中获取
+    if (!sourceName && sourceCode && !sourceCode.startsWith('custom_')) {
+        sourceName = API_SITES[sourceCode] ? API_SITES[sourceCode].name : '';
+    } else if (!sourceName && sourceCode && sourceCode.startsWith('custom_')) {
+        const customIndex = sourceCode.replace('custom_', '');
+        const customApi = getCustomApiInfo(customIndex);
+        sourceName = customApi ? customApi.name : '';
     }
 
     // 保存当前状态到localStorage，让播放页面可以获取
