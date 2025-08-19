@@ -614,16 +614,41 @@ async function batchRun(keys, worker, concurrency = 4) {
 // —— 智能选择前 N 个最快且稳定的 API，并同步 UI 勾选 ——
 // 会：1) 使用所有 API 为候选（尊重黄色过滤设置）；2) 按指标选前6；3) 更新复选框与 localStorage
 async function smartSelectAllAPIs() {
+    const btn = document.getElementById('smartSelectBtn');
+    let originalHtml = '';
+    const setLoading = () => {
+        if (!btn || btn.disabled) return;
+        originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.classList.add('opacity-60', 'cursor-not-allowed');
+        btn.innerHTML = '<span class="inline-flex items-center gap-1"><span class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span><span>智能选择中...</span></span>';
+    };
+    const clearLoading = () => {
+        if (!btn) return;
+        btn.disabled = false;
+        btn.classList.remove('opacity-60', 'cursor-not-allowed');
+        if (originalHtml) btn.innerHTML = originalHtml;
+    };
+
+    setLoading();
     const excludeAdult = localStorage.getItem('yellowFilterEnabled') === 'true';
     const candidates = getAllApiKeys(excludeAdult);
 
     if (!candidates.length) {
         showToast('没有可用的数据源候选', 'warning');
+        clearLoading();
         return;
     }
 
     // 测试
-    const results = await batchRun(candidates, (k) => testApiSpeed(k, SMART_PICK), SMART_PICK.concurrency);
+    let results = [];
+    try {
+        results = await batchRun(candidates, (k) => testApiSpeed(k, SMART_PICK), SMART_PICK.concurrency);
+    } catch (e) {
+        clearLoading();
+        showToast('智能选择失败，请稍后重试', 'error');
+        return;
+    }
 
     // 过滤：成功率达标
     const good = results
@@ -664,6 +689,7 @@ async function smartSelectAllAPIs() {
     } catch (_) { }
 
     showToast(`已智能选择 ${selectedAPIs.length} 个最快源`, 'success');
+    clearLoading();
 }
 
 // 显示添加自定义API表单
