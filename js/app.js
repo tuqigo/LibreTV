@@ -11,6 +11,126 @@ let currentVideoTitle = '';
 // 全局变量用于倒序状态
 let episodesReversed = false;
 
+// 延迟测试函数 - 测试视频链接的延迟
+async function testVideoLatency(vod_play_url) {
+    if (!vod_play_url) return { latency: null, status: 'no_url' };
+    
+    try {
+        // 解析播放链接，获取第一个可用的链接
+        let testUrl = '';
+        
+        // 处理多集格式：第1集$url#第2集$url#...
+        if (vod_play_url.includes('$') && vod_play_url.includes('#')) {
+            const firstEpisode = vod_play_url.split('#')[0];
+            const urlMatch = firstEpisode.match(/\$([^#]+)/);
+            if (urlMatch) {
+                testUrl = urlMatch[1];
+            }
+        }
+        // 处理单集格式：全集$url
+        else if (vod_play_url.includes('$')) {
+            const urlMatch = vod_play_url.match(/\$([^#]+)/);
+            if (urlMatch) {
+                testUrl = urlMatch[1];
+            }
+        }
+        
+        if (!testUrl) return { latency: null, status: 'no_url' };
+        
+        // 使用代理测试延迟，因为直接访问会403
+        const proxyUrl = PROXY_URL + encodeURIComponent(testUrl);
+        
+        // 测试3次取平均值
+        const attempts = 3;
+        const latencies = [];
+        let nonOkCount = 0;
+        
+        for (let i = 0; i < attempts; i++) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
+            
+            const startTime = performance.now();
+            let ok = false;
+            try {
+                // 优先使用 HEAD，若不被支持再回退到 GET Range
+                let response = await fetch(proxyUrl, {
+                    method: 'HEAD',
+                    signal: controller.signal,
+                    cache: 'no-cache'
+                });
+                if (!response.ok || response.status === 405 || response.status === 501) {
+                    // 回退到 GET range 以尽量轻量
+                    response = await fetch(proxyUrl, {
+                        method: 'GET',
+                        headers: { 'Range': 'bytes=0-0' },
+                        signal: controller.signal,
+                        cache: 'no-cache'
+                    });
+                }
+                const endTime = performance.now();
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    ok = true;
+                    latencies.push(endTime - startTime);
+                } else {
+                    nonOkCount++;
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name !== 'AbortError') {
+                    nonOkCount++;
+                }
+            }
+            
+            if (i < attempts - 1) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+        
+        if (latencies.length > 0) {
+            const avgLatency = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+            return { latency: avgLatency, status: 'success' };
+        }
+        if (nonOkCount > 0) {
+            return { latency: null, status: 'unavailable' };
+        }
+        return { latency: null, status: 'timeout' };
+        
+    } catch (error) {
+        console.warn('延迟测试失败:', error);
+        return { latency: null, status: 'error' };
+    }
+}
+
+// 格式化延迟显示
+function formatLatencyDisplay(latencyData) {
+    if (!latencyData || !latencyData.latency) {
+        switch (latencyData?.status) {
+            case 'timeout':
+                return '<span class="text-red-400 text-xs">超时</span>';
+            case 'unavailable':
+                return '<span class="text-red-400 text-xs">不可用</span>';
+            case 'error':
+                return '<span class="text-red-400 text-xs">测试失败</span>';
+            case 'no_url':
+                return '<span class="text-gray-400 text-xs">无链接</span>';
+            default:
+                return '<span class="text-gray-400 text-xs">测试中...</span>';
+        }
+    }
+    
+    const latency = latencyData.latency;
+    let colorClass = 'text-green-400';
+    
+    if (latency > 2000) {
+        colorClass = 'text-red-400';
+    } else if (latency > 1000) {
+        colorClass = 'text-yellow-400';
+    }
+    
+    return `<span class="${colorClass} text-xs">${latency}ms</span>`;
+}
+
 // 页面初始化
 document.addEventListener('DOMContentLoaded', function () {
     // 初始化API复选框
@@ -889,7 +1009,7 @@ async function search() {
         // console.log(allResults)
 
         // 添加XSS保护，使用textContent和属性转义
-        resultsDiv.innerHTML = allResults.map(item => {
+        resultsDiv.innerHTML = allResults.map((item, index) => {
             const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
             const safeName = (item.vod_name || '').toString()
                 .replace(/</g, '&lt;')
@@ -898,6 +1018,7 @@ async function search() {
             const sourceInfo = item.source_name ?
                 `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${item.source_name}</span>` : '';
             const sourceCode = item.source_code || '';
+            const key = (safeId || '') + '_' + sourceCode;
 
             // 添加API URL属性，用于详情获取
             const apiUrlAttr = item.api_url ?
@@ -908,6 +1029,7 @@ async function search() {
 
             return `
                 <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md" 
+                     data-key="${key}" data-latency=""
                      onclick="checkAndPlayVideo('${safeId}','${safeName}','${sourceCode}')" ${apiUrlAttr}>
                     <div class="flex h-full">
                         ${hasCover ? `
@@ -940,22 +1062,79 @@ async function search() {
                             
                             <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
                                 ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
-                                <!-- 接口名称过长会被挤变形
-                                <div>
-                                    <span class="text-gray-500 flex items-center hover:text-blue-400 transition-colors">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                        </svg>
-                                        播放
-                                    </span>
+                                <div class="latency-display" data-key="${key}">
+                                    ${ (typeof item.__latency !== 'undefined' || item.__latencyStatus) ? formatLatencyDisplay({ latency: item.__latency, status: item.__latencyStatus }) : '<span class="text-gray-400 text-xs">测试中...</span>' }
                                 </div>
-                                -->
                             </div>
                         </div>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // 根据 data-latency 对结果进行排序
+        const resortByLatency = () => {
+            const container = document.getElementById('results');
+            if (!container) return;
+            const cards = Array.from(container.children);
+            const toNum = (el) => {
+                const val = el.getAttribute('data-latency');
+                const n = parseInt(val || '', 10);
+                if (Number.isFinite(n)) return n;
+                // 未测或错误：放到最后
+                return Number.MAX_SAFE_INTEGER;
+            };
+            cards.sort((a, b) => toNum(a) - toNum(b));
+            cards.forEach(card => container.appendChild(card));
+        };
+
+        // 异步测试每个视频的延迟（收集Promise便于后续排序）
+        const latencyPromises = allResults.map(async (item) => {
+            try {
+                const result = await testVideoLatency(item.vod_play_url);
+                item.__latency = result.latency || null;
+                item.__latencyStatus = result.status || (result.latency ? 'success' : 'unknown');
+                const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
+                const sourceCode = item.source_code || '';
+                const key = (safeId || '') + '_' + sourceCode;
+                const latencyElement = document.querySelector(`.latency-display[data-key="${key}"]`);
+                if (latencyElement) {
+                    latencyElement.innerHTML = formatLatencyDisplay(result);
+                }
+                const card = document.querySelector(`.card-hover[data-key="${key}"]`);
+                if (card) {
+                    if (typeof result.latency === 'number') {
+                        card.setAttribute('data-latency', String(Math.round(result.latency)));
+                    } else if (['unavailable', 'timeout', 'error'].includes(result.status)) {
+                        card.setAttribute('data-latency', String(Number.MAX_SAFE_INTEGER));
+                    } else {
+                        card.removeAttribute('data-latency');
+                    }
+                }
+                resortByLatency();
+            } catch (error) {
+                const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
+                const sourceCode = item.source_code || '';
+                const key = (safeId || '') + '_' + sourceCode;
+                const latencyElement = document.querySelector(`.latency-display[data-key="${key}"]`);
+                if (latencyElement) {
+                    latencyElement.innerHTML = '<span class="text-red-400 text-xs">测试失败</span>';
+                }
+                const card = document.querySelector(`.card-hover[data-key="${key}"]`);
+                if (card) {
+                    card.setAttribute('data-latency', String(Number.MAX_SAFE_INTEGER));
+                }
+                resortByLatency();
+            }
+        });
+
+        // 在全部测速完成或等待2秒后，再做一次兜底排序
+        Promise.race([
+            Promise.allSettled(latencyPromises),
+            new Promise(resolve => setTimeout(resolve, 2000))
+        ]).then(() => {
+            resortByLatency();
+        }).catch(() => {});
     } catch (error) {
         console.error('搜索错误:', error);
         if (error.name === 'AbortError') {
