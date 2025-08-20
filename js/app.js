@@ -14,11 +14,11 @@ let episodesReversed = false;
 // 延迟测试函数 - 测试视频链接的延迟
 async function testVideoLatency(vod_play_url) {
     if (!vod_play_url) return { latency: null, status: 'no_url' };
-    
+
     try {
         // 解析播放链接，获取第一个可用的链接
         let testUrl = '';
-        
+
         // 处理多集格式：第1集$url#第2集$url#...
         if (vod_play_url.includes('$') && vod_play_url.includes('#')) {
             const firstEpisode = vod_play_url.split('#')[0];
@@ -34,21 +34,21 @@ async function testVideoLatency(vod_play_url) {
                 testUrl = urlMatch[1];
             }
         }
-        
+
         if (!testUrl) return { latency: null, status: 'no_url' };
-        
+
         // 使用代理测试延迟，因为直接访问会403
         const proxyUrl = PROXY_URL + encodeURIComponent(testUrl);
-        
+
         // 测试3次取平均值
         const attempts = 3;
         const latencies = [];
         let nonOkCount = 0;
-        
+
         for (let i = 0; i < attempts; i++) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
-            
+            const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5秒超时
+
             const startTime = performance.now();
             let ok = false;
             try {
@@ -81,12 +81,12 @@ async function testVideoLatency(vod_play_url) {
                     nonOkCount++;
                 }
             }
-            
+
             if (i < attempts - 1) {
                 await new Promise(resolve => setTimeout(resolve, 200));
             }
         }
-        
+
         if (latencies.length > 0) {
             const avgLatency = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
             return { latency: avgLatency, status: 'success' };
@@ -95,7 +95,7 @@ async function testVideoLatency(vod_play_url) {
             return { latency: null, status: 'unavailable' };
         }
         return { latency: null, status: 'timeout' };
-        
+
     } catch (error) {
         console.warn('延迟测试失败:', error);
         return { latency: null, status: 'error' };
@@ -118,16 +118,16 @@ function formatLatencyDisplay(latencyData) {
                 return '<span class="text-gray-400 text-xs">测试中...</span>';
         }
     }
-    
+
     const latency = latencyData.latency;
     let colorClass = 'text-green-400';
-    
+
     if (latency > 2000) {
         colorClass = 'text-red-400';
     } else if (latency > 1000) {
         colorClass = 'text-yellow-400';
     }
-    
+
     return `<span class="${colorClass} text-xs">${latency}ms</span>`;
 }
 
@@ -1089,7 +1089,7 @@ async function search() {
                             <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
                                 ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
                                 <div class="latency-display" data-key="${key}">
-                                    ${ (typeof item.__latency !== 'undefined' || item.__latencyStatus) ? formatLatencyDisplay({ latency: item.__latency, status: item.__latencyStatus }) : '<span class="text-gray-400 text-xs">测试中...</span>' }
+                                    ${(typeof item.__latency !== 'undefined' || item.__latencyStatus) ? formatLatencyDisplay({ latency: item.__latency, status: item.__latencyStatus }) : '<span class="text-gray-400 text-xs">测试中...</span>'}
                                 </div>
                             </div>
                         </div>
@@ -1157,10 +1157,10 @@ async function search() {
         // 在全部测速完成或等待2秒后，再做一次兜底排序
         Promise.race([
             Promise.allSettled(latencyPromises),
-            new Promise(resolve => setTimeout(resolve, 2000))
+            new Promise(resolve => setTimeout(resolve, 1000))
         ]).then(() => {
             resortByLatency();
-        }).catch(() => {});
+        }).catch(() => { });
     } catch (error) {
         console.error('搜索错误:', error);
         if (error.name === 'AbortError') {
@@ -1214,6 +1214,7 @@ async function checkAndPlayVideo(id, vod_name, sourceCode) {
 
         const response = await fetch('/api/detail?id=' + encodeURIComponent(id) + apiParams);
         const data = await response.json();
+        // console.log(data)
 
         if (data.episodes && data.episodes.length > 0) {
             // 安全处理集数URL
@@ -1249,8 +1250,7 @@ async function checkAndPlayVideo(id, vod_name, sourceCode) {
             }
 
             // 如果有多集，显示详情页面
-            hideLoading();
-            showDetails(id, vod_name, sourceCode);
+            showDetails(id, vod_name, sourceCode, data);
         } else {
             hideLoading();
             showToast('没有找到可播放的视频', 'error');
@@ -1263,63 +1263,23 @@ async function checkAndPlayVideo(id, vod_name, sourceCode) {
 }
 
 // 显示详情 - 修改为支持自定义API
-async function showDetails(id, vod_name, sourceCode) {
-    // 密码保护校验
-    if (window.isPasswordProtected && window.isPasswordVerified) {
-        if (window.isPasswordProtected() && !window.isPasswordVerified()) {
-            showPasswordModal && showPasswordModal();
-            return;
-        }
-    }
-    if (!id) {
-        showToast('视频ID无效', 'error');
-        return;
-    }
-
-    showLoading();
+async function showDetails(id, vod_name, sourceCode, detaildata) {
     try {
-        // 构建API参数
-        let apiParams = '';
-
-        // 处理自定义API源
-        if (sourceCode.startsWith('custom_')) {
-            const customIndex = sourceCode.replace('custom_', '');
-            const customApi = getCustomApiInfo(customIndex);
-            if (!customApi) {
-                showToast('自定义API配置无效', 'error');
-                hideLoading();
-                return;
-            }
-            // 传递 detail 字段
-            if (customApi.detail) {
-                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&customDetail=' + encodeURIComponent(customApi.detail) + '&source=custom';
-            } else {
-                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&source=custom';
-            }
-        } else {
-            // 内置API
-            apiParams = '&source=' + sourceCode;
-        }
-
-        const response = await fetch('/api/detail?id=' + encodeURIComponent(id) + apiParams);
-
-        const data = await response.json();
-
         const modal = document.getElementById('modal');
         const modalTitle = document.getElementById('modalTitle');
         const modalContent = document.getElementById('modalContent');
 
         // 显示来源信息
-        const sourceName = data.videoInfo && data.videoInfo.source_name ?
-            ` <span class="text-sm font-normal text-gray-400">(${data.videoInfo.source_name})</span>` : '';
+        const sourceName = detaildata.videoInfo && detaildata.videoInfo.source_name ?
+            ` <span class="text-sm font-normal text-gray-400">(${detaildata.videoInfo.source_name})</span>` : '';
 
         // 不对标题进行截断处理，允许完整显示
         modalTitle.innerHTML = `<span class="break-words">${vod_name || '未知视频'}</span>${sourceName}`;
         currentVideoTitle = vod_name || '未知视频';
 
-        if (data.episodes && data.episodes.length > 0) {
+        if (detaildata.episodes && detaildata.episodes.length > 0) {
             // 安全处理集数URL
-            const safeEpisodes = data.episodes.map(url => {
+            const safeEpisodes = detaildata.episodes.map(url => {
                 try {
                     // 确保URL是有效的并且是http或https开头
                     return url && (url.startsWith('http://') || url.startsWith('https://'))
