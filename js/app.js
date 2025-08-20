@@ -501,9 +501,9 @@ function selectAllAPIs(selectAll = true, excludeAdult = false) {
 // —— 可调参数 ——
 const SMART_PICK = {
     attempts: 3,                 // 每个源探测次数
-    timeoutMs: 2000,             // 每次探测超时
-    keywords: ['test', '电影'],   // 轻/重 两种关键词，交替测
-    concurrency: 8,              // 并发批量
+    timeoutMs: 2500,             // 每次探测超时
+    keywords: ['sadadwewqesadasda', '电影每次探测超时'],   // 轻/重 两种关键词，交替测
+    concurrency: 15,              // 并发批量
     minSuccessRate: 2 / 3,         // 成功率门槛
     topN: 8
 };
@@ -539,7 +539,6 @@ async function testApiSpeed(apiKey, opts = SMART_PICK) {
     } else {
         const site = API_SITES[apiKey];
         if (!site) return { key: apiKey, apiName: '(未定义)', successRate: 0, median: Infinity, jitter: Infinity, score: Infinity };
-        baseUrl = site.api;
         name = site.name;
     }
 
@@ -549,7 +548,8 @@ async function testApiSpeed(apiKey, opts = SMART_PICK) {
 
     for (let i = 0; i < attempts; i++) {
         const kw = keywords[i % keywords.length];
-        const url = baseUrl + API_CONFIG.search.path + encodeURIComponent(kw) + '&pg=1';
+        const url = getSearchApi(apiKey, kw, baseUrl) + '&pg=1'
+        // const url = baseUrl + API_CONFIG.search.path + encodeURIComponent(kw) + '&pg=1';
 
         const controller = new AbortController();
         const t = setTimeout(() => controller.abort(), timeoutMs);
