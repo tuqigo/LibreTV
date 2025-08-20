@@ -34,45 +34,74 @@ function getDetailApi(source, id, customApi = null) {
     return buildApiUrl(baseApi, API_CONFIG.detail.path, encodeURIComponent(id));
 }
 
-// 放到文件顶端或路由外：统一 m3u8 正则
-const M3U8_URL_RE = /https?:\/\/[^\s'"$#<>]+\.m3u8(?:\?[^'"\s#<>]*)?/ig;
+// 匹配常见视频直链
+const VIDEO_URL_RE = /https?:\/\/[^\s'"$#<>]+?\.(m3u8|mp4|flv|avi|mkv|mov|wmv)(\?[^'"\s#<>]*)?/ig;
 
-// 从单个源块中提取 m3u8 集数
-function extractM3u8EpisodesFromBlock(block) {
+// 从单个源块中提取视频直链
+function extractVideoEpisodesFromBlock(block) {
     if (!block) return [];
     const normalized = block.replace(/&amp;/g, '&');
-    const pieces = normalized.split('#'); // ep1#ep2#...
+    const pieces = normalized.split('#');
     const urls = [];
 
     for (const ep of pieces) {
-        // ep 形如：标题$URL 或 仅 URL，取最后一个 $ 之后的部分更稳
         const lastPart = ep.includes('$') ? ep.split('$').pop().trim() : ep.trim();
-        const match = lastPart.match(M3U8_URL_RE);
+        const match = lastPart.match(VIDEO_URL_RE);
         if (match && match.length) urls.push(...match);
     }
 
-    // 去重 + 只保留 http(s)
     const uniq = Array.from(new Set(urls.map(u => u.trim())));
     return uniq.filter(u => /^https?:\/\//i.test(u));
 }
 
-// 在所有源块中挑选“包含 m3u8 最多”的主源
-function pickPrimaryM3u8Episodes(playUrl) {
+// 统计最多的后缀，返回该类型的链接
+function filterByDominantExtension(urls) {
+    if (!urls.length) return [];
+
+    const counter = {};
+    for (const u of urls) {
+        const extMatch = u.match(/\.(m3u8|mp4|flv|avi|mkv|mov|wmv)(?=$|\?|#)/i);
+        if (extMatch) {
+            const ext = extMatch[1].toLowerCase();
+            counter[ext] = (counter[ext] || 0) + 1;
+        }
+    }
+
+    // 找到数量最多的后缀
+    let dominantExt = null;
+    let maxCount = 0;
+    for (const [ext, count] of Object.entries(counter)) {
+        if (count > maxCount) {
+            dominantExt = ext;
+            maxCount = count;
+        }
+    }
+
+    if (!dominantExt) return [];
+
+    // 只保留这种后缀的链接
+    return urls.filter(u => u.toLowerCase().includes(`.${dominantExt}`));
+}
+
+// 主逻辑
+function pickPrimaryVideoEpisodes(playUrl) {
     const blocks = playUrl.split('$$$').filter(Boolean);
     let best = [];
 
     for (const b of blocks) {
-        const eps = extractM3u8EpisodesFromBlock(b);
+        const eps = extractVideoEpisodesFromBlock(b);
         if (eps.length > best.length) best = eps;
     }
 
-    // 若按块仍无结果，直接在整段里兜底抓取
     if (best.length === 0) {
-        const all = (playUrl.replace(/&amp;/g, '&').match(M3U8_URL_RE) || []);
+        const all = (playUrl.replace(/&amp;/g, '&').match(VIDEO_URL_RE) || []);
         best = Array.from(new Set(all));
     }
-    return best;
+
+    return filterByDominantExtension(best);
 }
+
+
 
 // 改进的API请求处理函数
 async function handleApiRequest(url) {
@@ -209,16 +238,12 @@ async function handleApiRequest(url) {
                 let episodes = [];
 
                 if (videoDetail.vod_play_url) {
-                    episodes = pickPrimaryM3u8Episodes(videoDetail.vod_play_url);
+                    episodes = pickPrimaryVideoEpisodes(videoDetail.vod_play_url);
                 }
 
-                // 如果没有找到播放地址，尝试使用正则表达式查找m3u8链接
                 if (episodes.length === 0 && videoDetail.vod_content) {
-                    const matches = videoDetail.vod_content.match(M3U8_PATTERN) || [];
-                    episodes = matches.map(link => link.replace(/^\$/, ''));
-
-                    // const matches = (videoDetail.vod_content.replace(/&amp;/g, '&').match(M3U8_URL_RE) || []);
-                    // episodes = Array.from(new Set(matches));
+                    const matches = (videoDetail.vod_content.replace(/&amp;/g, '&').match(VIDEO_URL_RE) || []);
+                    episodes = filterByDominantExtension(Array.from(new Set(matches)));
                 }
 
                 return JSON.stringify({
