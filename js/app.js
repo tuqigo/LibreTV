@@ -18,28 +18,21 @@ async function testVideoLatency(vod_play_url) {
     try {
         // 解析播放链接，获取第一个可用的链接
         let testUrl = '';
-
         // 处理多集格式：第1集$url#第2集$url#...
         if (vod_play_url.includes('$') && vod_play_url.includes('#')) {
             const firstEpisode = vod_play_url.split('#')[0];
             const urlMatch = firstEpisode.match(/\$([^#]+)/);
-            if (urlMatch) {
-                testUrl = urlMatch[1];
-            }
-        }
-        // 处理单集格式：全集$url
-        else if (vod_play_url.includes('$')) {
+            if (urlMatch) testUrl = urlMatch[1];
+        } else if (vod_play_url.includes('$')) {
             const urlMatch = vod_play_url.match(/\$([^#]+)/);
-            if (urlMatch) {
-                testUrl = urlMatch[1];
-            }
+            if (urlMatch) testUrl = urlMatch[1];
+        } else {
+            testUrl = vod_play_url; // 如果直接就是单个链接
         }
 
         if (!testUrl) return { latency: null, status: 'no_url' };
-
         // 使用代理测试延迟，因为直接访问会403
         const proxyUrl = PROXY_URL + encodeURIComponent(testUrl);
-
         // 测试3次取平均值
         const attempts = 3;
         const latencies = [];
@@ -47,53 +40,43 @@ async function testVideoLatency(vod_play_url) {
 
         for (let i = 0; i < attempts; i++) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5秒超时
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 5秒超时
 
             const startTime = performance.now();
-            let ok = false;
             try {
-                // 优先使用 HEAD，若不被支持再回退到 GET Range
-                let response = await fetch(proxyUrl, {
-                    method: 'HEAD',
+                const response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    headers: { 'Range': 'bytes=0-1023' },
                     signal: controller.signal,
                     cache: 'no-cache'
                 });
-                if (!response.ok || response.status === 405 || response.status === 501) {
-                    // 回退到 GET range 以尽量轻量
-                    response = await fetch(proxyUrl, {
-                        method: 'GET',
-                        headers: { 'Range': 'bytes=0-0' },
-                        signal: controller.signal,
-                        cache: 'no-cache'
-                    });
+
+                if (!response.ok) {
+                    nonOkCount++;
+                    clearTimeout(timeoutId);
+                    continue;
                 }
+
+                // 读取首字节
+                const reader = response.body.getReader();
+                await reader.read();
                 const endTime = performance.now();
                 clearTimeout(timeoutId);
-                if (response.ok) {
-                    ok = true;
-                    latencies.push(endTime - startTime);
-                } else {
-                    nonOkCount++;
-                }
+                latencies.push(endTime - startTime);
+
             } catch (error) {
                 clearTimeout(timeoutId);
-                if (error.name !== 'AbortError') {
-                    nonOkCount++;
-                }
+                if (error.name !== 'AbortError') nonOkCount++;
             }
 
-            if (i < attempts - 1) {
-                await new Promise(resolve => setTimeout(resolve, 200));
-            }
+            if (i < attempts - 1) await new Promise(res => setTimeout(res, 200));
         }
 
         if (latencies.length > 0) {
             const avgLatency = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
             return { latency: avgLatency, status: 'success' };
         }
-        if (nonOkCount > 0) {
-            return { latency: null, status: 'unavailable' };
-        }
+        if (nonOkCount > 0) return { latency: null, status: 'unavailable' };
         return { latency: null, status: 'timeout' };
 
     } catch (error) {
