@@ -90,6 +90,18 @@ const API_SITES = {
         api: 'https://www.mdzyapi.com',
         name: '魔都资源',
     },
+    lzi: {
+        api: 'https://cj.lziapi.com',
+        name: '量子资源',
+    },
+    xinlang: {
+        api: 'https://api.xinlangapi.com/xinlangapi.php/provide/vod',
+        name: '新浪资源',
+    },
+    p2100: {
+        api: 'https://p2100.net',
+        name: '飘零影院',
+    },
     // zuid: {
     //     api: 'https://api.zuidapi.com',
     //     name: '最大资源'

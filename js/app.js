@@ -931,13 +931,12 @@ async function search() {
                     const customIndex = apiId.replace('custom_', '');
                     const customApi = getCustomApiInfo(customIndex);
                     if (!customApi) return [];
-
-                    apiUrl = customApi.url + API_CONFIG.search.path + encodeURIComponent(query);
+                    apiUrl = getSearchApi(apiId, query, customApi.url)
                     apiName = customApi.name;
                 } else {
                     // 内置API
                     if (!API_SITES[apiId]) return [];
-                    apiUrl = API_SITES[apiId].api + API_CONFIG.search.path + encodeURIComponent(query);
+                    apiUrl = getSearchApi(apiId, query)
                     apiName = API_SITES[apiId].name;
                 }
 
@@ -1214,7 +1213,7 @@ async function checkAndPlayVideo(id, vod_name, sourceCode) {
 
         const response = await fetch('/api/detail?id=' + encodeURIComponent(id) + apiParams);
         const data = await response.json();
-        // console.log(data)
+        console.log(data)
 
         if (data.episodes && data.episodes.length > 0) {
             // 安全处理集数URL
