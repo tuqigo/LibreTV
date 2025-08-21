@@ -280,6 +280,14 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                         </svg>
                     </button>
+
+                    <!-- 缓存状态按钮 -->
+                    <button id="cacheStatusBtn" title="缓存状态" onclick="toggleCacheStatusPanel()" class="px-2 py-1 bg-[#222] hover:bg-[#333] border border-[#333] text-white rounded-lg transition flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 6v6l4 2"></path>
+                        </svg>
+                    </button>
                     
                     <!-- 锁定控制按钮 - 始终显示在最右侧 -->
                     <button id="lockToggle" onclick="toggleControlsLock()" title="锁定控制" 
@@ -290,6 +298,26 @@
                                 d="M15 11V7a3 3 0 00-6 0v4m-3 4h12v6H6v-6z" />
                         </svg>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 缓存状态面板 -->
+        <div id="cacheStatusPanel" class="player-container hidden">
+            <div class="p-3 bg-[#111] border border-[#333] rounded-lg text-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-gray-300">缓存状态</div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="refreshCacheStatus()" class="px-2 py-1 bg-[#222] hover:bg-[#333] border border-[#333] rounded text-xs">刷新</button>
+                        <button onclick="clearAllCache()" class="px-2 py-1 bg-red-600 hover:bg-red-700 border border-red-700 rounded text-xs">清空缓存</button>
+                    </div>
+                </div>
+                <div id="cacheStatusBody" class="text-gray-400 space-y-1">
+                    <div>后台：<span id="cacheBackend">-</span></div>
+                    <div>占用：<span id="cacheUsed">-</span> / <span id="cacheMax">-</span></div>
+                    <div>条目：<span id="cacheItems">-</span></div>
+                    <div>TTL：<span id="cacheTTL">-</span></div>
+                    <div class="mt-1 border-t border-[#222] pt-2">预取：并发 <span id="prefetchConcurrent">-</span>，窗口 <span id="prefetchWindow">-</span>，进行中 <span id="prefetchRunning">-</span>，队列 <span id="prefetchQueue">-</span></div>
                 </div>
             </div>
         </div>
@@ -353,6 +381,7 @@
     <script src="libs/DPlayer.min.js" crossorigin="anonymous"></script>
 
     <script src="js/config.js"></script>
+    <script src="js/hls-cache.js"></script>
     <script src="js/password.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/tool.js"></script>

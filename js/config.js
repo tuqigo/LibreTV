@@ -234,6 +234,12 @@ const PLAYER_CONFIG = {
     adFilteringStorage: 'adFilteringEnabled' // 存储广告过滤设置的键名
 };
 
+// HLS 分片缓存配置（集中配置）
+const HLS_CACHE_CONFIG = {
+    maxBytes: 500 * 1024 * 1024, // 500MB（针对本站所有视频的总上限）
+    ttlMs: 6 * 60 * 60 * 1000    // 6小时
+};
+
 // 增加错误信息本地化
 const ERROR_MESSAGES = {
     NETWORK_ERROR: '网络连接错误，请检查网络设置',

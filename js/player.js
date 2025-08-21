@@ -23,6 +23,9 @@ let userClickedPosition = null; // 记录用户点击的位置
 let shortcutHintTimeout = null; // 用于控制快捷键提示显示时间
 let adFilteringEnabled = true; // 默认开启广告过滤
 let progressSaveInterval = null; // 定期保存进度的计时器
+// 初始化全局分片缓存（统一从 HLS_CACHE_CONFIG 读取）
+window.__hlsSegmentCache = window.__hlsSegmentCache || (window.HlsSegmentCache ? new window.HlsSegmentCache({ maxBytes: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.maxBytes) || undefined, ttlMs: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.ttlMs) || undefined }) : null);
+
 
 // 页面加载
 document.addEventListener('DOMContentLoaded', function() {
@@ -243,16 +246,18 @@ function showShortcutHint(text, direction) {
 function initPlayer(videoUrl, sourceCode) {
     if (!videoUrl) return;
 
+
     // 配置HLS.js选项
     const hlsConfig = {
         debug: false,
-        loader: adFilteringEnabled ? CustomHlsJsLoader : Hls.DefaultConfig.loader,
+        loader: (window.HybridHlsJsLoader ? window.HybridHlsJsLoader : Hls.DefaultConfig.loader),
+        adFilterEnabled: adFilteringEnabled,
         enableWorker: true,
         lowLatencyMode: false,
-        backBufferLength: 90,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        maxBufferSize: 30 * 1000 * 1000,
+        backBufferLength: 60,
+        maxBufferLength: 90,
+        maxMaxBufferLength: 120,
+        maxBufferSize: 100 * 1000 * 1000,
         maxBufferHole: 0.5,
         fragLoadingMaxRetry: 6,
         fragLoadingMaxRetryTimeout: 64000,
@@ -355,6 +360,15 @@ function initPlayer(videoUrl, sourceCode) {
                         video.play().catch(e => {
                             console.warn('自动播放被阻止:', e);
                         });
+                        // 初始化分片预取器
+                        try {
+                            if (window.HlsSegmentPrefetcher && window.__hlsSegmentCache) {
+                                // 默认并发 4，窗口 10 片
+                                if (hls.__prefetcher) { /* 复用 */ } else {
+                                    hls.__prefetcher = new window.HlsSegmentPrefetcher(hls, window.__hlsSegmentCache, { concurrent: 6, windowSize: 12 });
+                                }
+                            }
+                        } catch (_) {}
                     });
                     
                     hls.on(Hls.Events.ERROR, function(event, data) {
@@ -1253,4 +1267,55 @@ function toggleControlsLock() {
     icon.innerHTML = controlsLocked
         ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=\"M12 15v2m0-8V7a4 4 0 00-8 0v2m8 0H4v8h16v-8h-4z\"/>'
         : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=\"M15 11V7a3 3 0 00-6 0v4m-3 4h12v6H6v-6z\"/>';
+}
+
+// ====== 缓存状态面板逻辑 ======
+function bytesToHuman(n){
+    if (!n && n !== 0) return '-';
+    const u = ['B','KB','MB','GB','TB'];
+    let i = 0; let v = n;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return `${v.toFixed(1)} ${u[i]}`;
+}
+
+async function refreshCacheStatus(){
+    try {
+        const cache = window.__hlsSegmentCache;
+        const stats = cache && cache.getStats ? await cache.getStats() : null;
+        document.getElementById('cacheBackend').textContent = stats ? stats.backend : '-';
+        document.getElementById('cacheUsed').textContent = stats ? bytesToHuman(stats.totalBytes) : '-';
+        document.getElementById('cacheMax').textContent = stats ? bytesToHuman(stats.maxBytes) : '-';
+        document.getElementById('cacheItems').textContent = stats ? String(stats.items) : '-';
+        document.getElementById('cacheTTL').textContent = stats ? `${Math.round((stats.ttlMs||0)/3600000)} 小时` : '-';
+
+        const pf = currentHls && currentHls.__prefetcher ? currentHls.__prefetcher.getStats() : null;
+        document.getElementById('prefetchConcurrent').textContent = pf ? pf.concurrent : '-';
+        document.getElementById('prefetchWindow').textContent = pf ? pf.windowSize : '-';
+        document.getElementById('prefetchRunning').textContent = pf ? pf.running : '-';
+        document.getElementById('prefetchQueue').textContent = pf ? pf.queueSize : '-';
+    } catch (e) {
+        console.warn('刷新缓存状态失败', e);
+    }
+}
+
+function toggleCacheStatusPanel(){
+    const panel = document.getElementById('cacheStatusPanel');
+    if (!panel) return;
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        refreshCacheStatus();
+    }
+}
+
+async function clearAllCache(){
+    try {
+        if (window.__hlsSegmentCache && window.__hlsSegmentCache.clearAll) {
+            await window.__hlsSegmentCache.clearAll();
+            showToast && showToast('已清空分片缓存', 'success');
+            refreshCacheStatus();
+        }
+    } catch(e) {
+        console.warn('清空缓存失败', e);
+        showToast && showToast('清空缓存失败', 'error');
+    }
 }
