@@ -51,7 +51,7 @@ async function testVideoLatency(vod_play_url) {
                     cache: 'no-cache'
                 });
 
-                if (!response.ok) {
+                if (!response.ok || (response.status !== 200 && response.status !== 206)) {
                     nonOkCount++;
                     clearTimeout(timeoutId);
                     continue;
