@@ -105,9 +105,9 @@ function formatLatencyDisplay(latencyData) {
     const latency = latencyData.latency;
     let colorClass = 'text-green-400';
 
-    if (latency > 2000) {
+    if (latency > 2500) {
         colorClass = 'text-red-400';
-    } else if (latency > 1000) {
+    } else if (latency > 1500) {
         colorClass = 'text-yellow-400';
     }
 
