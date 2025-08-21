@@ -341,6 +341,9 @@
             this.currentSn = null;
             this.controller = new AbortController();
             this._bind();
+            this._recentDurations = []; // 近 N 片下载耗时
+            this._adjustTimer = null;
+            this._startAutoAdjust();
         }
         _bind(){
             this.hls.on(window.Hls.Events.LEVEL_LOADED, (_, data) => {
@@ -389,11 +392,34 @@
             try {
                 const hit = await this.cache.getByUrl(url);
                 if (hit) return; // 已缓存
+                const t0 = performance.now();
                 const resp = await fetch(url, { signal: this.controller.signal, cache: 'no-store' });
                 if (!resp.ok) return;
                 const buf = await resp.arrayBuffer();
                 await this.cache.putByUrl(url, buf);
+                const t1 = performance.now();
+                this._recentDurations.push(t1 - t0);
+                if (this._recentDurations.length > 20) this._recentDurations.shift();
             } catch(_) { /* 忽略预取错误 */ }
+        }
+        _startAutoAdjust(){
+            const adjust = () => {
+                if (this._recentDurations.length >= 5) {
+                    const avg = this._recentDurations.reduce((a,b)=>a+b,0)/this._recentDurations.length;
+                    // 粗略根据耗时调整预取并发/窗口：慢则降并发，小幅扩大窗口；快则升并发
+                    if (avg > 1500) {
+                        this.concurrent = Math.max(2, this.concurrent - 1);
+                        this.windowSize = Math.max(3, this.windowSize - 1); // <--收缩窗口
+                    } else if (avg < 1000) {
+                        this.concurrent = Math.min(8, this.concurrent + 1);
+                        this.windowSize = Math.min(20, this.windowSize + 1);
+                    }
+                    // 清空历史，下一轮重新评估
+                    this._recentDurations.length = 0;
+                }
+                this._adjustTimer = setTimeout(adjust, 3000);
+            };
+            this._adjustTimer = setTimeout(adjust, 3000);
         }
         getStats(){
             return {

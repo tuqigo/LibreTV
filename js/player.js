@@ -365,7 +365,7 @@ function initPlayer(videoUrl, sourceCode) {
                             if (window.HlsSegmentPrefetcher && window.__hlsSegmentCache) {
                                 // 默认并发 4，窗口 10 片
                                 if (hls.__prefetcher) { /* 复用 */ } else {
-                                    hls.__prefetcher = new window.HlsSegmentPrefetcher(hls, window.__hlsSegmentCache, { concurrent: 6, windowSize: 12 });
+                                    hls.__prefetcher = new window.HlsSegmentPrefetcher(hls, window.__hlsSegmentCache, { concurrent: 4, windowSize: 8 });
                                 }
                             }
                         } catch (_) {}
