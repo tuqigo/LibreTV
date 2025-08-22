@@ -30,6 +30,53 @@ async function getLatestSegmentUrl(m3u8Url) {
     return segUrl;
 }
 
+// 延迟测试函数 - 测试视频链接的延迟
+async function testVideoLatencyByid(vod_id, sourceCode) {
+    if (!vod_id) {
+        return { latency: null, status: 'no_url' }
+    }
+
+    try {
+        // 构建API参数
+        let apiParams = '';
+
+        // 处理自定义API源
+        if (sourceCode.startsWith('custom_')) {
+            const customIndex = sourceCode.replace('custom_', '');
+            const customApi = getCustomApiInfo(customIndex);
+            if (!customApi) {
+                showToast('自定义API配置无效', 'error');
+                hideLoading();
+                return;
+            }
+            // 传递 detail 字段
+            if (customApi.detail) {
+                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&customDetail=' + encodeURIComponent(customApi.detail) + '&source=custom';
+            } else {
+                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&source=custom';
+            }
+        } else {
+            // 内置API
+            apiParams = '&source=' + sourceCode;
+        }
+
+        const response = await fetch('/api/detail?id=' + encodeURIComponent(vod_id) + apiParams);
+        const data = await response.json();
+
+
+        if (data.episodes && data.episodes.length > 0) {
+            // 安全处理集数URL
+            m3u8Url = data.episodes[0]
+            return testVideoLatency(m3u8Url)
+
+        } else {
+            return { latency: null, status: 'no_url' }
+        }
+    } catch (error) {
+        return { latency: null, status: 'error' };
+    }
+}
+
 
 // 延迟测试函数 - 测试视频链接的延迟
 async function testVideoLatency(vod_play_url) {
@@ -52,25 +99,25 @@ async function testVideoLatency(vod_play_url) {
 
         if (!testUrl) return { latency: null, status: 'no_url' };
 
-        
-        // const segUrl =await getLatestSegmentUrl(testUrl);
+
+        const segUrl =await getLatestSegmentUrl(testUrl);
         // 使用代理测试延迟，因为直接访问会403
-        const proxyUrl = PROXY_URL + encodeURIComponent(testUrl);
+        const proxyUrl = PROXY_URL + encodeURIComponent(segUrl);
         // 测试3次取平均值
-        const attempts = 3;
+        const attempts = 1;
         const latencies = [];
         let nonOkCount = 0;
 
         for (let i = 0; i < attempts; i++) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 5秒超时
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
 
             const startTime = performance.now();
             try {
                 const response = await fetch(proxyUrl, {
                     method: 'GET',
                     headers: {
-                        'Range': 'bytes=0-1023',
+                        // 'Range': 'bytes=0-1023',
                         // 尽量绕过缓存（不改动原链接，避免签名失效）
                         'Cache-Control': 'no-cache',
                         'Pragma': 'no-cache'
@@ -133,9 +180,9 @@ function formatLatencyDisplay(latencyData) {
     const latency = latencyData.latency;
     let colorClass = 'text-green-400';
 
-    if (latency > 2500) {
+    if (latency > 2000) {
         colorClass = 'text-red-400';
-    } else if (latency > 1500) {
+    } else if (latency > 1000) {
         colorClass = 'text-yellow-400';
     }
 
@@ -1127,7 +1174,8 @@ async function search() {
         // 异步测试每个视频的延迟（收集Promise便于后续排序）
         const latencyPromises = allResults.map(async (item) => {
             try {
-                const result = await testVideoLatency(item.vod_play_url);
+                // const result = await testVideoLatency(item.vod_play_url);
+                const result = await testVideoLatencyByid(item.vod_id, item.source_code);
                 item.__latency = result.latency || null;
                 item.__latencyStatus = result.status || (result.latency ? 'success' : 'unknown');
                 const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
