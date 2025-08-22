@@ -7,7 +7,7 @@ async function syncConfig(needShowToast = false) {
         }
         return
     }
-    const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appUserName}_viewingHistory`);
+    const baseURL = encodeURIComponent(`https://kv.092201.xyz/my-db/viewingHistory/operation?key=${appUserName}_viewingHistory`);
     // 1. 拉取远程配置
     let remoteList = [];
     try {
