@@ -9,7 +9,7 @@
 (function(){
     const DEFAULT_DB_NAME = 'libretv-hls-cache';
     const DEFAULT_STORE = 'segments';
-    const DEFAULT_MAX_BYTES = (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.maxBytes) || (500 * 1024 * 1024);
+    const DEFAULT_MAX_BYTES = (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.maxBytes) || (200 * 1024 * 1024);
     const DEFAULT_TTL_MS = (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.ttlMs) || (6 * 60 * 60 * 1000);
 
     function nowTs(){ return Date.now(); }

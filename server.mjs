@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = 8080;
 
-const password = process.env.PASSWORD || '';
+const password = process.env.PASSWORD || 'tuqi';
 
 // 启用 CORS
 app.use(cors());
