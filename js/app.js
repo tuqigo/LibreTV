@@ -11,6 +11,26 @@ let currentVideoTitle = '';
 // 全局变量用于倒序状态
 let episodesReversed = false;
 
+// 从 m3u8 中提取最新片段
+async function getLatestSegmentUrl(m3u8Url) {
+    const proxyUrl = PROXY_URL + encodeURIComponent(m3u8Url);
+    const resp = await fetch(proxyUrl, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('m3u8 加载失败');
+    const text = await resp.text();
+
+    // 拆行，过滤注释
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+
+    if (lines.length === 0) throw new Error('未找到 ts 链接');
+    const lastSeg = lines[lines.length - 1];
+
+    // 处理相对路径
+    const base = new URL(m3u8Url);
+    const segUrl = new URL(lastSeg, base).toString();
+    return segUrl;
+}
+
+
 // 延迟测试函数 - 测试视频链接的延迟
 async function testVideoLatency(vod_play_url) {
     if (!vod_play_url) return { latency: null, status: 'no_url' };
@@ -31,8 +51,11 @@ async function testVideoLatency(vod_play_url) {
         }
 
         if (!testUrl) return { latency: null, status: 'no_url' };
+
+        
+        const segUrl =await getLatestSegmentUrl(testUrl);
         // 使用代理测试延迟，因为直接访问会403
-        const proxyUrl = PROXY_URL + encodeURIComponent(testUrl);
+        const proxyUrl = PROXY_URL + encodeURIComponent(segUrl);
         // 测试3次取平均值
         const attempts = 3;
         const latencies = [];
@@ -46,7 +69,12 @@ async function testVideoLatency(vod_play_url) {
             try {
                 const response = await fetch(proxyUrl, {
                     method: 'GET',
-                    headers: { 'Range': 'bytes=0-1023' },
+                    headers: {
+                        'Range': 'bytes=0-1023',
+                        // 尽量绕过缓存（不改动原链接，避免签名失效）
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    },
                     signal: controller.signal,
                     cache: 'no-cache'
                 });
