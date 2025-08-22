@@ -53,9 +53,9 @@ async function testVideoLatency(vod_play_url) {
         if (!testUrl) return { latency: null, status: 'no_url' };
 
         
-        const segUrl =await getLatestSegmentUrl(testUrl);
+        // const segUrl =await getLatestSegmentUrl(testUrl);
         // 使用代理测试延迟，因为直接访问会403
-        const proxyUrl = PROXY_URL + encodeURIComponent(segUrl);
+        const proxyUrl = PROXY_URL + encodeURIComponent(testUrl);
         // 测试3次取平均值
         const attempts = 3;
         const latencies = [];
