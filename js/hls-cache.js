@@ -412,7 +412,7 @@
                         this.windowSize = Math.max(3, this.windowSize - 1); // <--收缩窗口
                     } else if (avg < 1500) {
                         this.concurrent = Math.min(10, this.concurrent + 1);
-                        this.windowSize = Math.min(20, this.windowSize + 1);
+                        this.windowSize = Math.min(30, this.windowSize + 1);
                     }
                     // 清空历史，下一轮重新评估
                     this._recentDurations.length = 0;
