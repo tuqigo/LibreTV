@@ -407,11 +407,11 @@
                 if (this._recentDurations.length >= 5) {
                     const avg = this._recentDurations.reduce((a,b)=>a+b,0)/this._recentDurations.length;
                     // 粗略根据耗时调整预取并发/窗口：慢则降并发，小幅扩大窗口；快则升并发
-                    if (avg > 2000) {
+                    if (avg > 4000) {
                         this.concurrent = Math.max(3, this.concurrent - 1);
                         this.windowSize = Math.max(3, this.windowSize - 1); // <--收缩窗口
-                    } else if (avg < 1000) {
-                        this.concurrent = Math.min(8, this.concurrent + 1);
+                    } else if (avg < 1500) {
+                        this.concurrent = Math.min(10, this.concurrent + 1);
                         this.windowSize = Math.min(20, this.windowSize + 1);
                     }
                     // 清空历史，下一轮重新评估
