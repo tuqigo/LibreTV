@@ -76,10 +76,10 @@ async function syncConfig(needShowToast = false) {
     localStorage.setItem(key, JSON.stringify(merged));
     try {
         // 本地不为空，才需要写远程 todo 后期可以设置本地和远程的merger通过算法计算是否需要写远程
-        if (localList.length > 0) {
+        if (localList.length > 0 || remoteList.length === 0) {
             await fetch(PROXY_URL + baseURL, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(merged),
             });
         }
