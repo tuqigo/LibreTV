@@ -12,53 +12,96 @@ let currentVideoTitle = '';
 let episodesReversed = false;
 
 
-// 获取最新视频片段的函数（修复后）
-async function getLatestSegmentUrl(m3u8Url, proxyUrl = '') {
-    const maxRetries = 3;
-    let lastError;
+// 获取最新视频片段的函数
+// 获取“最新可直连”的媒体分片（优先 PART）
+async function getLatestSegmentUrl(m3u8Url, { preferPart = true } = {}) {
+    const cacheBust = (u) => u + (u.includes('?') ? '&' : '?') + `_=${Date.now()}`;
+    const resolveUrl = (u, base) => new URL(u, base).toString();
 
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            // 构建请求URL（使用代理或直接请求）
-            const requestUrl = proxyUrl ?
-                proxyUrl + encodeURIComponent(m3u8Url) :
-                m3u8Url;
+    const fetchText = async (url) => {
+        const res = await fetch(cacheBust(url), { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP错误: ${res.status}`);
+        return res.text();
+    };
 
-            // 添加随机参数避免缓存
-            const urlWithCacheBuster = requestUrl + (requestUrl.includes('?') ? '&' : '?') +
-                `_=${Date.now()}`;
+    const isMediaFile = (line) => {
+        const l = line.trim();
+        if (!l || l.startsWith('#') || l.endsWith('.m3u8')) return false;
+        const path = l.split('#')[0].split('?')[0].toLowerCase();
+        return /\.(ts|m4s|mp4|m4a|aac|m4v)$/.test(path);
+    };
 
-            // 模拟网络请求
-            await new Promise(resolve => setTimeout(resolve, 1000));
+    // 1) 拉取首个清单
+    let text = await fetchText(PROXY_URL + encodeURIComponent(m3u8Url));
 
-            // 模拟各种HTTP错误
-            if (m3u8Url.includes('502')) {
-                throw new Error('HTTP错误: 502 Bad Gateway');
-            } else if (m3u8Url.includes('403')) {
-                throw new Error('HTTP错误: 403 Forbidden');
-            } else if (m3u8Url.includes('404')) {
-                throw new Error('HTTP错误: 404 Not Found');
-            } else if (m3u8Url.includes('empty')) {
-                throw new Error('M3U8文件为空');
-            } else if (m3u8Url.includes('no-ts')) {
-                throw new Error('未找到TS片段链接');
+    // 2) 如为 Master（多码率），选带宽最高的子清单
+    if (/#EXT-X-STREAM-INF/i.test(text)) {
+        let bestUri = null, bestBw = -1;
+        const re = /#EXT-X-STREAM-INF:([^\r\n]*)[\r\n]+([^\r\n#]+)/gi;
+        let m;
+        while ((m = re.exec(text))) {
+            const attrs = m[1] || '';
+            const uri = m[2].trim();
+            const bw = (attrs.match(/BANDWIDTH=(\d+)/i) || [])[1];
+            const bwNum = bw ? parseInt(bw, 10) : 0;
+            if (bwNum > bestBw) {
+                bestBw = bwNum;
+                bestUri = resolveUrl(uri, m3u8Url);
             }
-
-            // 模拟成功响应
-            const segUrl = new URL('segment_00003.ts', m3u8Url).toString();
-            return segUrl;
-
-        } catch (error) {
-            lastError = error;
-            // 如果不是最后一次重试，等待一段时间后重试
-            if (i < maxRetries - 1) {
-                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-            }
+        }
+        if (bestUri) {
+            m3u8Url = bestUri;
+            text = await fetchText(bestUri);
         }
     }
 
-    throw lastError;
+    // 3) LL-HLS：优先拿最后一个 PART（更“最新”）
+    if (preferPart && /#EXT-X-PART:/i.test(text)) {
+        const partUris = [];
+        text.replace(/#EXT-X-PART:[^\n\r]*?URI="([^"]+)"/gi, (_, u) => {
+            partUris.push(resolveUrl(u, m3u8Url));
+            return '';
+        });
+        if (partUris.length) return partUris[partUris.length - 1];
+
+        // 可选：预取提示（有些源能直拉，有些不行，保守起见不默认返回）
+        const hint = text.match(/#EXT-X-PRELOAD-HINT:[^\n\r]*TYPE=PART[^\n\r]*URI="([^"]+)"/i);
+        if (hint) return resolveUrl(hint[1], m3u8Url);
+    }
+
+    // 4) 常规 HLS：找最后一个完整分片（优先跟随 #EXTINF）
+    const lines = text.split(/\r?\n/);
+    const segs = [];
+    let afterExtInf = false;
+    for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+
+        if (line.startsWith('#EXTINF')) {
+            afterExtInf = true;
+            continue;
+        }
+
+        if (afterExtInf && !line.startsWith('#')) {
+            // 典型：EXTINF 后紧跟分片 URI
+            segs.push(resolveUrl(line, m3u8Url));
+            afterExtInf = false;
+            continue;
+        }
+
+        afterExtInf = false;
+        // 兜底：非注释行里挑能识别的媒体分片
+        if (isMediaFile(line)) {
+            segs.push(resolveUrl(line, m3u8Url));
+        }
+    }
+
+    if (segs.length) return segs[segs.length - 1];
+
+    throw new Error('未找到可用分片（可能是加密或非标准清单）');
 }
+
+
 
 // 延迟测试函数 - 测试视频链接的延迟
 async function testVideoLatencyByid(vod_id, sourceCode) {
@@ -126,55 +169,25 @@ async function testVideoLatency(vod_play_url) {
         } else {
             testUrl = vod_play_url; // 如果直接就是单个链接
         }
-
         if (!testUrl) return { latency: null, status: 'no_url' };
+        const segUrl = await getLatestSegmentUrl(testUrl);
 
+        console.log(segUrl)
 
-        const segUrl = await getLatestSegmentUrl(testUrl, PROXY_URL);
-        // 使用代理测试延迟，因为直接访问会403
-        const proxyUrl = PROXY_URL + encodeURIComponent(testUrl);
         // 测试3次取平均值
-        const attempts = 1;
+        const attempts = 3;
         const latencies = [];
         let nonOkCount = 0;
 
+        // todo 使用<video>标签对segUrl进行测速 可以防止跨域
         for (let i = 0; i < attempts; i++) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
-
-            const startTime = performance.now();
-            try {
-                const response = await fetch(proxyUrl, {
-                    method: 'GET',
-                    headers: {
-                        // 'Range': 'bytes=0-1023',
-                        // 尽量绕过缓存（不改动原链接，避免签名失效）
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    },
-                    signal: controller.signal,
-                    cache: 'no-cache'
-                });
-
-                if (!response.ok || (response.status !== 200 && response.status !== 206)) {
-                    nonOkCount++;
-                    clearTimeout(timeoutId);
-                    continue;
-                }
-
-                // 读取首字节
-                const reader = response.body.getReader();
-                await reader.read();
-                const endTime = performance.now();
-                clearTimeout(timeoutId);
-                latencies.push(endTime - startTime);
-
-            } catch (error) {
-                clearTimeout(timeoutId);
-                if (error.name !== 'AbortError') nonOkCount++;
+            const result = await measureLatencyWithFetch(segUrl);
+            console.log(result)
+            if (result.status === 'success') {
+                latencies.push(result.latency);
+            } else {
+                nonOkCount++;
             }
-
-            if (i < attempts - 1) await new Promise(res => setTimeout(res, 200));
         }
 
         if (latencies.length > 0) {
@@ -189,6 +202,40 @@ async function testVideoLatency(vod_play_url) {
         return { latency: null, status: 'error' };
     }
 }
+
+// 网络层直连测速（请求部分 TS 数据）
+async function measureLatencyWithFetch(url, timeout = 5000) {
+    return new Promise((resolve) => {
+        const startTime = performance.now();
+        const controller = new AbortController();
+
+        const timer = setTimeout(() => {
+            controller.abort();
+            resolve({ latency: null, status: 'timeout' });
+        }, timeout);
+
+        fetch(url, {
+            method: 'GET',
+            headers: { Range: 'bytes=0-102400' }, // 取前100KB即可测速
+            signal: controller.signal,
+            cache: 'no-cache'
+        }).then(res => {
+            if (res.ok || res.status === 206) {
+                const latency = Math.round(performance.now() - startTime);
+                clearTimeout(timer);
+                resolve({ latency, status: 'success' });
+            } else {
+                clearTimeout(timer);
+                resolve({ latency: null, status: 'error' });
+            }
+        }).catch(() => {
+            clearTimeout(timer);
+            resolve({ latency: null, status: 'error' });
+        });
+    });
+}
+
+
 
 // 格式化延迟显示
 function formatLatencyDisplay(latencyData) {
