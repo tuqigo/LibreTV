@@ -24,17 +24,6 @@ def start_server():
     """启动Flask服务器"""
     print("正在启动LibreTV后端服务...")
     
-    # 设置环境变量
-    env = os.environ.copy()
-    env['FLASK_ENV'] = 'production'
-    
-    # 如果没有设置JWT密钥，生成一个随机密钥
-    if 'JWT_SECRET_KEY' not in env:
-        import secrets
-        env['JWT_SECRET_KEY'] = secrets.token_hex(32)
-        print(f"已生成随机JWT密钥: {env['JWT_SECRET_KEY']}")
-        print("注意：在生产环境中，请设置固定的JWT_SECRET_KEY环境变量")
-    
     try:
         # 启动Flask应用
         from LibreProgramBackend import app

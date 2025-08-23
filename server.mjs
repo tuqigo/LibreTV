@@ -98,7 +98,7 @@ app.all('/proxy/:encodedUrl', async (req, res) => {
 app.use('/proxy/api', async (req, res) => {
   try {
     const backendUrl = process.env.BACKEND_URL || 'https://libretv.092201.xyz';
-    
+
     // 保留 query string
     const apiPath = req.originalUrl.replace(/^\/proxy\/api/, '');
     const targetUrl = `${backendUrl}/api${apiPath}`;
@@ -110,6 +110,7 @@ app.use('/proxy/api', async (req, res) => {
       method: req.method,
       url: targetUrl,
       headers: {
+        headers: { ...req.headers, host: undefined }, // 透传 header，包括 Authorization
         'Content-Type': req.headers['content-type'] || 'application/json'
       },
       timeout: 10000
