@@ -172,8 +172,6 @@ async function testVideoLatency(vod_play_url) {
         if (!testUrl) return { latency: null, status: 'no_url' };
         const segUrl = await getLatestSegmentUrl(testUrl);
 
-        console.log(segUrl)
-
         // 测试3次取平均值
         const attempts = 3;
         const latencies = [];
@@ -182,7 +180,6 @@ async function testVideoLatency(vod_play_url) {
         // todo 使用<video>标签对segUrl进行测速 可以防止跨域
         for (let i = 0; i < attempts; i++) {
             const result = await measureLatencyWithFetch(segUrl);
-            console.log(result)
             if (result.status === 'success') {
                 latencies.push(result.latency);
             } else {

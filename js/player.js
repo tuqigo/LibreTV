@@ -27,23 +27,24 @@ let progressSaveInterval = null; // 定期保存进度的计时器
 window.__hlsSegmentCache = window.__hlsSegmentCache || (window.HlsSegmentCache ? new window.HlsSegmentCache({ maxBytes: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.maxBytes) || undefined, ttlMs: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.ttlMs) || undefined }) : null);
 
 
-// 页面加载
-document.addEventListener('DOMContentLoaded', function () {
-    // 先检查用户是否已通过密码验证
-    if (!isPasswordVerified()) {
-        // 隐藏加载提示
-        document.getElementById('loading').style.display = 'none';
-        return;
-    }
-
+// 监听认证成功事件
+document.addEventListener('authVerified', () => {
+    document.getElementById('loading').style.display = 'block';
     initializePageContent();
 });
 
-// 监听密码验证成功事件
-document.addEventListener('passwordVerified', () => {
-    document.getElementById('loading').style.display = 'block';
-
-    initializePageContent();
+// 页面加载完成后检查认证状态
+document.addEventListener('DOMContentLoaded', function() {
+    // 检查认证状态
+    if (window.AuthSystem && window.AuthSystem.isUserAuthenticated()) {
+        // 用户已认证，直接初始化页面
+        initializePageContent();
+    } else {
+        // 用户未认证，显示认证弹框
+        if (window.AuthSystem) {
+            window.AuthSystem.showAuthModal();
+        }
+    }
 });
 
 // 初始化页面内容

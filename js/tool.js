@@ -1,20 +1,45 @@
 async function syncConfig(needShowToast = false) {
     const key = 'viewingHistory';
-    const appUserName = localStorage.getItem('appUserName')
-    if (!appUserName) {
+    
+    // 检查JWT认证状态
+    if (!window.AuthSystem || !window.AuthSystem.isUserAuthenticated()) {
         if (needShowToast) {
-            showToast(`请先设置配置标识！`, 'warning');
+            showToast(`请先登录以同步播放历史！`, 'warning');
         }
-        return
+        return;
     }
-    const baseURL = encodeURIComponent(`https://api.092201.xyz/my-db/viewingHistory/operation?key=${appUserName}_viewingHistory`);
+    
+    const user = window.AuthSystem.getCurrentUser();
+    const token = window.AuthSystem.getStoredToken();
+    
+    if (!user || !token) {
+        if (needShowToast) {
+            showToast(`认证信息无效，请重新登录！`, 'warning');
+        }
+        return;
+    }
+    
+
     // 1. 拉取远程配置
     let remoteList = [];
     try {
-        const res = await fetch(PROXY_URL + baseURL);
-        if (!res.ok) throw new Error(`GET ${res.status}`);
-        remoteList = await res.json();
-        if (!Array.isArray(remoteList)) remoteList = [];
+        const res = await fetch(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (res.status === 404) {
+            // 新用户，没有远程数据
+            remoteList = [];
+        } else if (!res.ok) {
+            throw new Error(`GET ${res.status}`);
+        } else {
+            const data = await res.json();
+            remoteList = data.data ? JSON.parse(data.data) : [];
+            if (!Array.isArray(remoteList)) remoteList = [];
+        }
     } catch (e) {
         console.warn('拉取远程 viewingHistory 失败，采用空列表：', e);
     }
@@ -75,11 +100,14 @@ async function syncConfig(needShowToast = false) {
     // 4. 写回本地和远程
     localStorage.setItem(key, JSON.stringify(merged));
     try {
-        // 本地不为空，才需要写远程 todo 后期可以设置本地和远程的merger通过算法计算是否需要写远程
+        // 本地不为空，才需要写远程
         if (localList.length > 0 || remoteList.length === 0) {
-            await fetch(PROXY_URL + baseURL, {
+            await fetch(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(merged),
             });
         }
@@ -90,11 +118,6 @@ async function syncConfig(needShowToast = false) {
     loadViewingHistory(); // 重新加载历史记录
 
     if (needShowToast) {
-        showToast(`${appUserName} 的历史播放记录已同步`, 'success');
-        // showToast('配置文件同步成功，3 秒后自动刷新本页面。', 'success');
-        // 5. 刷新页面
-        // setTimeout(() => {
-        //     window.location.reload();
-        // }, 3000);
+        showToast(`${user.username} 的历史播放记录已同步`, 'success');
     }
 }

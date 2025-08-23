@@ -94,6 +94,71 @@ app.all('/proxy/:encodedUrl', async (req, res) => {
   }
 });
 
+// 新增：代理到后端服务器的简化路径
+app.use('/proxy/api', async (req, res) => {
+  try {
+    const backendUrl = process.env.BACKEND_URL || 'https://libretv.092201.xyz';
+    
+    // 保留 query string
+    const apiPath = req.originalUrl.replace(/^\/proxy\/api/, '');
+    const targetUrl = `${backendUrl}/api${apiPath}`;
+
+    console.log(`代理请求: ${req.method} ${req.originalUrl} -> ${targetUrl}`);
+
+    // 构造 axios 配置
+    const axiosConfig = {
+      method: req.method,
+      url: targetUrl,
+      headers: {
+        'Content-Type': req.headers['content-type'] || 'application/json'
+      },
+      timeout: 10000
+    };
+
+    // 仅 POST/PUT/PATCH 方法才发送 body
+    if (['POST', 'PUT', 'PATCH'].includes(req.method.toUpperCase())) {
+      axiosConfig.data = req.body;
+    }
+
+    // 发送请求
+    const response = await axios(axiosConfig);
+
+    // 设置响应头，删除敏感头
+    const headers = { ...response.headers };
+    delete headers['content-security-policy'];
+    delete headers['set-cookie'];
+    delete headers['cookie'];
+    res.set(headers);
+
+    // 返回响应内容
+    if (headers['content-type']?.includes('application/json')) {
+      res.status(response.status).json(response.data);
+    } else {
+      res.status(response.status);
+      response.data.pipe(res);
+    }
+
+  } catch (error) {
+    console.error('代理错误:', error.message);
+    if (error.response) {
+      const headers = { ...error.response.headers };
+      delete headers['content-security-policy'];
+      delete headers['set-cookie'];
+      delete headers['cookie'];
+      res.set(headers);
+      res.status(error.response.status);
+      if (headers['content-type']?.includes('application/json')) {
+        res.json(error.response.data);
+      } else {
+        error.response.data.pipe(res);
+      }
+    } else {
+      res.status(500).send(`代理错误: ${error.message}`);
+    }
+  }
+});
+
+
 // 静态文件路径
 app.use(express.static('./'));
 

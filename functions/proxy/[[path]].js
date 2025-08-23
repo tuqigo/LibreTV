@@ -100,6 +100,33 @@ export async function onRequest(context) {
 
     // --- 主要请求处理逻辑 ---
     try {
+        // 检查是否是简化的API代理路径
+        if (url.pathname.startsWith('/proxy/api/')) {
+            // 从环境变量获取后端服务器地址
+            const backendUrl = env.BACKEND_URL || 'https://aa.bb.com';
+            
+            // 提取API路径
+            const apiPath = url.pathname.replace('/proxy/api', '');
+            const targetUrl = `${backendUrl}/api${apiPath}`;
+            
+            logDebug(`API代理请求: ${request.method} ${url.pathname} -> ${targetUrl}`);
+
+            // 构造到后端的同方法请求
+            const forwarded = new Request(targetUrl, {
+                method: request.method,
+                headers: request.headers,
+                body: request.body,
+                redirect: 'follow',
+            });
+            
+            const resp = await fetch(forwarded);
+            const body = await resp.text();
+            
+            // 返回响应并添加CORS头
+            return createResponse(body, resp.status, Object.fromEntries(resp.headers));
+        }
+
+        // 原有的通用代理逻辑
         const targetUrl = getTargetUrlFromPath(url.pathname);
 
         if (!targetUrl) {
@@ -107,8 +134,7 @@ export async function onRequest(context) {
             return createResponse("无效的代理请求。路径应为 /proxy/<经过编码的URL>", 400);
         }
 
-        logDebug(`收到代理请求: ${targetUrl}`);
-
+        logDebug(`收到通用代理请求: ${targetUrl}`);
 
         // 构造到后端的同方法请求
         const forwarded = new Request(targetUrl, {
