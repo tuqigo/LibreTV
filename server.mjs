@@ -1,9 +1,10 @@
-import path from 'path';
-import express from 'express';
 import axios from 'axios';
 import cors from 'cors';
-import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import express from 'express';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,8 @@ const password = process.env.PASSWORD || 'tuqi';
 
 // 启用 CORS
 app.use(cors());
+app.use(express.json()); // 支持 application/json
+app.use(express.urlencoded({ extended: true })); // 支持 form
 
 app.get(['/', '/index.html', '/player.html'], async (req, res) => {
   try {
@@ -39,21 +42,18 @@ app.get(['/', '/index.html', '/player.html'], async (req, res) => {
   }
 })
 
-app.get('/proxy/:encodedUrl', async (req, res) => {
+// 代理所有方法
+app.all('/proxy/:encodedUrl', async (req, res) => {
   try {
-    // 获取 URL 编码的参数
     const encodedUrl = req.params.encodedUrl;
-
-    // 对 URL 进行解码
     const targetUrl = decodeURIComponent(encodedUrl);
 
-    // 安全验证：检查是否为合法 URL
+    // 安全验证
     const isValidUrl = (urlString) => {
       try {
         const parsed = new URL(urlString);
         const allowedProtocols = ['http:', 'https:'];
         const blockedHostnames = ['localhost', '127.0.0.1'];
-
         return allowedProtocols.includes(parsed.protocol) &&
           !blockedHostnames.includes(parsed.hostname);
       } catch {
@@ -61,32 +61,35 @@ app.get('/proxy/:encodedUrl', async (req, res) => {
       }
     };
 
-    // 安全验证
     if (!isValidUrl(targetUrl)) {
       return res.status(400).send('Invalid URL');
     }
 
-    // 发起请求
+    // 构造请求
     const response = await axios({
-      method: 'get',
+      method: req.method,
       url: targetUrl,
+      headers: { ...req.headers, host: undefined }, // 透传客户端 header，但去掉 host
+      data: req.body,
       responseType: 'stream',
-      timeout: 5000
+      timeout: 10000
     });
 
-    // 转发响应头（过滤敏感头）
+    // 转发响应头
     const headers = { ...response.headers };
     delete headers['content-security-policy'];
     delete headers['cookie'];
     res.set(headers);
 
-    // 管道传输响应流
+    // 转发响应流
     response.data.pipe(res);
+
   } catch (error) {
     if (error.response) {
-      error.response.data.pipe(res)
+      res.status(error.response.status);
+      error.response.data.pipe(res);
     } else {
-      res.status(500).send(error.message)
+      res.status(500).send(error.message);
     }
   }
 });
@@ -96,11 +99,7 @@ app.use(express.static('./'));
 
 // 计算 SHA-256 哈希值
 export async function sha256Hash(input) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return crypto.createHash('sha256').update(input).digest('hex');
 }
 
 app.listen(port, () => {
@@ -109,4 +108,3 @@ app.listen(port, () => {
     console.log('登录密码为：', password);
   }
 });
-
