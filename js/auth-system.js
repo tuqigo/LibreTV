@@ -343,6 +343,7 @@ async function handleLogin(event) {
             storeAuthData(data.token, data.user);
             showSuccess('登录成功！');
             hideAuthModal();
+            syncConfig()
             
             // 触发认证成功事件，让播放器页面初始化
             document.dispatchEvent(new CustomEvent('authVerified'));

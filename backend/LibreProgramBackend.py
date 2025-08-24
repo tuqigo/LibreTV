@@ -631,7 +631,7 @@ def logout():
             'refreshToken',
             '',
             expires=0,
-            path='/api/auth/refresh'
+            path='/proxy/api/auth/refresh'
         )
 
         app.logger.info(f"用户登出成功: {username} (ID: {user_id})")
