@@ -101,7 +101,7 @@ async function syncConfig(needShowToast = false) {
     localStorage.setItem(key, JSON.stringify(merged));
     try {
         // 本地不为空，才需要写远程
-        if (localList.length > 0 || remoteList.length === 0) {
+        if (localList.length > 0) {
             await fetch(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
                 method: 'POST',
                 headers: {
