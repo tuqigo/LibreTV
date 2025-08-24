@@ -34,7 +34,7 @@ document.addEventListener('authVerified', () => {
 });
 
 // 页面加载完成后检查认证状态
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // 检查认证状态
     if (window.AuthSystem && window.AuthSystem.isUserAuthenticated()) {
         // 用户已认证，直接初始化页面
@@ -246,7 +246,9 @@ function showShortcutHint(text, direction) {
 // 初始化播放器
 function initPlayer(videoUrl, sourceCode) {
     if (!videoUrl) return;
-
+    if (dp) {
+        dp.destroy();
+    }
 
     // 配置HLS.js选项
     const hlsConfig = {
@@ -311,6 +313,7 @@ function initPlayer(videoUrl, sourceCode) {
             pic: 'image/nomedia.png', // 设置视频封面图
             customType: {
                 hls: function (video, player) {
+                    
                     // 清理之前的HLS实例
                     if (currentHls && currentHls.destroy) {
                         try {
@@ -361,6 +364,17 @@ function initPlayer(videoUrl, sourceCode) {
                         video.play().catch(e => {
                             console.warn('自动播放被阻止:', e);
                         });
+
+                        // ===============================
+                        // 🔥 默认强制最高码率
+                        // ===============================
+                        if (hls.levels && hls.levels.length > 0) {
+                            const maxLevel = hls.levels.length - 1;
+                            hls.currentLevel = maxLevel;   // 👈 切最高
+                            hls.autoLevelEnabled = false;  // 👈 禁止自动降级
+                            console.log(`已切换最高码率: ${hls.levels[maxLevel].height || '?'}p`);
+                        }
+
                         // 初始化分片预取器
                         try {
                             if (window.HlsSegmentPrefetcher && window.__hlsSegmentCache) {
@@ -370,11 +384,47 @@ function initPlayer(videoUrl, sourceCode) {
                                 }
                             }
                         } catch (_) { }
+
+                        // ===============================
+                        // 👇 可选功能：增加清晰度切换菜单
+                        // ===============================
+                        if (hls.levels && hls.levels.length > 0) {
+                            const qualities = hls.levels.map((level, i) => ({
+                                name: `${level.height || '?'}p`,
+                                url: video.src,   // DPlayer 要求字段，实际不会替换
+                                type: 'customHls',
+                                levelIndex: i
+                            }));
+
+                            // 倒序，最高码率放在最前
+                            qualities.reverse();
+
+                            player.updateSetting([
+                                {
+                                    name: 'quality',
+                                    type: 'switch',
+                                    default: 0, // 默认最高
+                                    list: qualities.map((q, idx) => ({
+                                        name: q.name,
+                                        index: idx
+                                    })),
+                                    onSwitch: function (item) {
+                                        const selected = qualities[item.index];
+                                        if (selected) {
+                                            hls.currentLevel = selected.levelIndex;
+                                            hls.autoLevelEnabled = false; // 保持手动模式
+                                            console.log(`手动切换到 ${selected.name}`);
+                                        }
+                                    }
+                                }
+                            ]);
+                        }
+
                     });
 
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         console.log('HLS事件:', event, '数据:', data);
-
+                       
                         // 增加错误计数
                         errorCount++;
 
@@ -415,6 +465,21 @@ function initPlayer(videoUrl, sourceCode) {
                                         errorDisplayed = true;
                                         showError('视频加载失败，可能是格式不兼容或源不可用');
                                     }
+                                    break;
+                            }
+                        }
+
+                         // 👇 错误恢复逻辑，避免播放卡死
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    hls.startLoad(); // 👈 重新加载
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    hls.recoverMediaError(); // 👈 恢复媒体错误
+                                    break;
+                                default:
+                                    hls.destroy(); // 👈 彻底销毁
                                     break;
                             }
                         }
@@ -595,6 +660,8 @@ function initPlayer(videoUrl, sourceCode) {
         });
     })();
 }
+
+
 
 // 自定义M3U8 Loader用于过滤广告
 class CustomHlsJsLoader extends Hls.DefaultConfig.loader {
