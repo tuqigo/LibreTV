@@ -101,8 +101,6 @@ async function getLatestSegmentUrl(m3u8Url, { preferPart = true } = {}) {
     throw new Error('未找到可用分片（可能是加密或非标准清单）');
 }
 
-
-
 // 延迟测试函数 - 测试视频链接的延迟
 async function testVideoLatencyByid(vod_id, sourceCode) {
     if (!vod_id) {
@@ -172,17 +170,14 @@ async function testVideoLatency(vod_play_url) {
         if (!testUrl) return { latency: null, status: 'no_url' };
         const segUrl = await getLatestSegmentUrl(testUrl);
 
-        console.log(segUrl)
-
         // 测试3次取平均值
-        const attempts = 3;
+        const attempts = 1;
         const latencies = [];
         let nonOkCount = 0;
 
         // todo 使用<video>标签对segUrl进行测速 可以防止跨域
         for (let i = 0; i < attempts; i++) {
             const result = await measureLatencyWithFetch(segUrl);
-            console.log(result)
             if (result.status === 'success') {
                 latencies.push(result.latency);
             } else {
@@ -207,73 +202,33 @@ async function testVideoLatency(vod_play_url) {
 async function measureLatencyWithFetch(url, timeout = 5000) {
     return new Promise((resolve) => {
         const startTime = performance.now();
+        const controller = new AbortController();
 
-        // 添加时间戳避免缓存
-        const cacheBusterUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        const timer = setTimeout(() => {
+            controller.abort();
+            resolve({ latency: null, status: 'timeout' });
+        }, timeout);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('HEAD', cacheBusterUrl);
-        xhr.timeout = timeout;
-
-        xhr.onload = function () {
-            if (xhr.status === 200 || xhr.status === 206) {
+        fetch(url, {
+            method: 'GET',
+            headers: { Range: 'bytes=0-2047' }, // 取前100KB即可测速
+            signal: controller.signal,
+            cache: 'no-cache'
+        }).then(res => {
+            if (res.ok || res.status === 206) {
                 const latency = Math.round(performance.now() - startTime);
+                clearTimeout(timer);
                 resolve({ latency, status: 'success' });
             } else {
+                clearTimeout(timer);
                 resolve({ latency: null, status: 'error' });
             }
-        };
-
-        xhr.onerror = function () {
-            // 回退到GET请求少量数据
-            fallbackToGetRequest(url, timeout, resolve, startTime);
-        };
-
-        xhr.ontimeout = function () {
-            resolve({ latency: null, status: 'timeout' });
-        };
-
-        try {
-            xhr.send();
-        } catch (e) {
-            fallbackToGetRequest(url, timeout, resolve, startTime);
-        }
+        }).catch(() => {
+            clearTimeout(timer);
+            resolve({ latency: null, status: 'error' });
+        });
     });
 }
-
-// 备用方案：使用GET请求少量数据
-function fallbackToGetRequest(url, timeout, resolve, startTime) {
-    const xhr = new XMLHttpRequest();
-    const cacheBusterUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
-
-    xhr.open('GET', cacheBusterUrl);
-    xhr.timeout = timeout;
-    xhr.setRequestHeader('Range', 'bytes=0-2048');
-
-    xhr.onload = function () {
-        if (xhr.status === 200 || xhr.status === 206) {
-            const latency = Math.round(performance.now() - startTime);
-            resolve({ latency, status: 'success' });
-        } else {
-            resolve({ latency: null, status: 'error' });
-        }
-    };
-
-    xhr.onerror = function () {
-        resolve({ latency: null, status: 'error' });
-    };
-
-    xhr.ontimeout = function () {
-        resolve({ latency: null, status: 'timeout' });
-    };
-
-    try {
-        xhr.send();
-    } catch (e) {
-        resolve({ latency: null, status: 'error' });
-    }
-}
-
 // 格式化延迟显示
 function formatLatencyDisplay(latencyData) {
     if (!latencyData || !latencyData.latency) {
