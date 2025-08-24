@@ -205,75 +205,40 @@ async function testVideoLatency(vod_play_url) {
 
 // 网络层直连测速（请求部分 TS 数据）
 async function measureLatencyWithFetch(url, timeout = 5000) {
-    // 检测浏览器类型
-    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
-    if (isChrome) {
-        // Chrome浏览器使用原来的fetch方式
-        return new Promise((resolve) => {
-            const startTime = performance.now();
-            const controller = new AbortController();
+    return new Promise((resolve) => {
+        const startTime = performance.now();
 
-            const timer = setTimeout(() => {
-                controller.abort();
-                resolve({ latency: null, status: 'timeout' });
-            }, timeout);
+        // 添加时间戳避免缓存
+        const cacheBusterUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
 
-            fetch(url, {
-                method: 'GET',
-                headers: { Range: 'bytes=0-102400' },
-                signal: controller.signal,
-                cache: 'no-cache'
-            }).then(res => {
-                if (res.ok || res.status === 206) {
-                    const latency = Math.round(performance.now() - startTime);
-                    clearTimeout(timer);
-                    resolve({ latency, status: 'success' });
-                } else {
-                    clearTimeout(timer);
-                    resolve({ latency: null, status: 'error' });
-                }
-            }).catch(() => {
-                clearTimeout(timer);
+        const xhr = new XMLHttpRequest();
+        xhr.open('HEAD', cacheBusterUrl);
+        xhr.timeout = timeout;
+
+        xhr.onload = function () {
+            if (xhr.status === 200 || xhr.status === 206) {
+                const latency = Math.round(performance.now() - startTime);
+                resolve({ latency, status: 'success' });
+            } else {
                 resolve({ latency: null, status: 'error' });
-            });
-        });
-    } else {
-        // 其他浏览器使用更兼容的XHR方式
-        return new Promise((resolve) => {
-            const startTime = performance.now();
-
-            // 添加时间戳避免缓存
-            const cacheBusterUrl = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('HEAD', cacheBusterUrl);
-            xhr.timeout = timeout;
-
-            xhr.onload = function () {
-                if (xhr.status === 200 || xhr.status === 206) {
-                    const latency = Math.round(performance.now() - startTime);
-                    resolve({ latency, status: 'success' });
-                } else {
-                    resolve({ latency: null, status: 'error' });
-                }
-            };
-
-            xhr.onerror = function () {
-                // 回退到GET请求少量数据
-                fallbackToGetRequest(url, timeout, resolve, startTime);
-            };
-
-            xhr.ontimeout = function () {
-                resolve({ latency: null, status: 'timeout' });
-            };
-
-            try {
-                xhr.send();
-            } catch (e) {
-                fallbackToGetRequest(url, timeout, resolve, startTime);
             }
-        });
-    }
+        };
+
+        xhr.onerror = function () {
+            // 回退到GET请求少量数据
+            fallbackToGetRequest(url, timeout, resolve, startTime);
+        };
+
+        xhr.ontimeout = function () {
+            resolve({ latency: null, status: 'timeout' });
+        };
+
+        try {
+            xhr.send();
+        } catch (e) {
+            fallbackToGetRequest(url, timeout, resolve, startTime);
+        }
+    });
 }
 
 // 备用方案：使用GET请求少量数据
@@ -308,8 +273,6 @@ function fallbackToGetRequest(url, timeout, resolve, startTime) {
         resolve({ latency: null, status: 'error' });
     }
 }
-
-
 
 // 格式化延迟显示
 function formatLatencyDisplay(latencyData) {
