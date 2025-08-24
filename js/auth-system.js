@@ -93,6 +93,7 @@ function isTokenExpired(token) {
 // 刷新令牌
 async function refreshToken() {
     const token = getStoredToken();
+    console.log("refresh之前的token： " + token)
     if (!token) return false;
 
     try {
@@ -106,6 +107,7 @@ async function refreshToken() {
 
         if (response.ok) {
             const data = await response.json();
+            console.log("refresh之后的token： " + token)
             storeAuthData(data.token, getStoredUser());
             return true;
         } else {
@@ -151,10 +153,10 @@ function logout() {
 // 更新用户显示
 function updateUserDisplay() {
     // 更新设置标题
-    // const settingTitle = document.getElementById('settingTitle');
-    // if (settingTitle && currentUser) {
-    //     settingTitle.innerText = currentUser.username + '的设置';
-    // }
+    const settingTitle = document.getElementById('settingTitle');
+    if (settingTitle && currentUser) {
+        settingTitle.innerText = currentUser.username + '的设置';
+    }
 
     // // 添加用户信息到设置面板
     // const settingsPanel = document.getElementById('settingsPanel');
