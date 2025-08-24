@@ -106,11 +106,19 @@ export async function onRequest(context) {
             // 从环境变量获取后端服务器地址
             const backendUrl = env.BACKEND_URL || 'https://libretv.092201.xyz';
 
-            // 提取API路径
+            // 提取API路径和查询参数
             const apiPath = url.pathname.replace('/proxy/api', '');
-            const targetUrl = `${backendUrl}/api${apiPath}`;
+
+            // 构建目标URL，包含原始查询参数
+            let targetUrl = `${backendUrl}/api${apiPath}`;
+
+            // 添加原始查询参数
+            if (url.search) {
+                targetUrl += url.search;
+            }
 
             logDebug(`API代理请求: ${request.method} ${url.pathname} -> ${targetUrl}`);
+            logDebug(`查询参数: ${url.search}`);
 
             // 获取客户端请求的Cookie
             const clientCookies = request.headers.get('Cookie') || '';
@@ -121,8 +129,8 @@ export async function onRequest(context) {
 
             // 复制所有原始头，但排除一些可能引起问题的头
             for (const [key, value] of request.headers.entries()) {
-                // 跳过一些不应该转发的头
-                if (!['host', 'cookie', 'content-length'].includes(key.toLowerCase())) {
+                // 只排除host头，其他头都转发
+                if (key.toLowerCase() !== 'host') {
                     forwardedHeaders.set(key, value);
                 }
             }
@@ -138,25 +146,26 @@ export async function onRequest(context) {
                 forwardedHeaders.set('Cookie', clientCookies);
             }
 
-            // 对于POST请求，确保Content-Type正确设置
-            if (request.method === 'POST' || request.method === 'PUT') {
+            // 对于GET/HEAD请求，不应该有body
+            let requestBody = null;
+            if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
+                requestBody = request.body;
+
+                // 确保Content-Type正确设置
                 if (!forwardedHeaders.has('Content-Type')) {
                     forwardedHeaders.set('Content-Type', 'application/json');
-                }
-                // 确保Content-Length正确（如果存在body）
-                if (request.body) {
-                    // 注意：在Cloudflare Workers中，我们无法直接获取body大小
-                    // 所以最好删除可能不正确的Content-Length头
-                    forwardedHeaders.delete('Content-Length');
                 }
             }
 
             const forwarded = new Request(targetUrl, {
                 method: request.method,
                 headers: forwardedHeaders,
-                body: request.body,
+                body: requestBody,
                 redirect: 'follow',
             });
+
+            logDebug(`转发请求: ${forwarded.method} ${forwarded.url}`);
+            logDebug(`转发头: ${JSON.stringify(Object.fromEntries(forwardedHeaders))}`);
 
             const resp = await fetch(forwarded);
             const body = await resp.text();
@@ -164,6 +173,7 @@ export async function onRequest(context) {
             // 获取后端设置的Cookie
             const setCookieHeader = resp.headers.get('Set-Cookie');
             logDebug(`后端Set-Cookie: ${setCookieHeader}`);
+            logDebug(`响应状态: ${resp.status}`);
 
             // 构建响应头
             const responseHeaders = new Headers(resp.headers);
