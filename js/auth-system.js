@@ -151,53 +151,53 @@ function logout() {
 // 更新用户显示
 function updateUserDisplay() {
     // 更新设置标题
-    const settingTitle = document.getElementById('settingTitle');
-    if (settingTitle && currentUser) {
-        settingTitle.innerText = currentUser.username + '的设置';
-    }
+    // const settingTitle = document.getElementById('settingTitle');
+    // if (settingTitle && currentUser) {
+    //     settingTitle.innerText = currentUser.username + '的设置';
+    // }
     
-    // 添加用户信息到设置面板
-    const settingsPanel = document.getElementById('settingsPanel');
-    if (settingsPanel && currentUser) {
-        // 检查是否已经添加了用户信息区域
-        let userInfoSection = settingsPanel.querySelector('.user-info-section');
-        if (!userInfoSection) {
-            userInfoSection = document.createElement('div');
-            userInfoSection.className = 'user-info-section p-3 bg-[#151515] rounded-lg shadow-inner mb-5';
-            userInfoSection.innerHTML = `
-                <label class="block text-sm font-medium text-gray-400 mb-3 border-b border-[#333] pb-1">用户信息</label>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">用户名:</span>
-                        <span class="text-white">${currentUser.username}</span>
-                    </div>
-                    ${currentUser.email ? `
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">邮箱:</span>
-                        <span class="text-white">${currentUser.email}</span>
-                    </div>
-                    ` : ''}
-                    <div class="pt-2">
-                        <button onclick="logout()" class="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors">
-                            退出登录
-                        </button>
-                    </div>
-                </div>
-            `;
+    // // 添加用户信息到设置面板
+    // const settingsPanel = document.getElementById('settingsPanel');
+    // if (settingsPanel && currentUser) {
+    //     // 检查是否已经添加了用户信息区域
+    //     let userInfoSection = settingsPanel.querySelector('.user-info-section');
+    //     if (!userInfoSection) {
+    //         userInfoSection = document.createElement('div');
+    //         userInfoSection.className = 'user-info-section p-3 bg-[#151515] rounded-lg shadow-inner mb-5';
+    //         userInfoSection.innerHTML = `
+    //             <label class="block text-sm font-medium text-gray-400 mb-3 border-b border-[#333] pb-1">用户信息</label>
+    //             <div class="space-y-2 text-sm">
+    //                 <div class="flex justify-between">
+    //                     <span class="text-gray-400">用户名:</span>
+    //                     <span class="text-white">${currentUser.username}</span>
+    //                 </div>
+    //                 ${currentUser.email ? `
+    //                 <div class="flex justify-between">
+    //                     <span class="text-gray-400">邮箱:</span>
+    //                     <span class="text-white">${currentUser.email}</span>
+    //                 </div>
+    //                 ` : ''}
+    //                 <div class="pt-2">
+    //                     <button onclick="logout()" class="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors">
+    //                         退出登录
+    //                     </button>
+    //                 </div>
+    //             </div>
+    //         `;
             
-            // 插入到设置面板的开头
-            const firstChild = settingsPanel.querySelector('.space-y-5');
-            if (firstChild) {
-                firstChild.insertBefore(userInfoSection, firstChild.firstChild);
-            }
-        } else {
-            // 更新现有用户信息
-            const usernameSpan = userInfoSection.querySelector('.text-white');
-            if (usernameSpan) {
-                usernameSpan.textContent = currentUser.username;
-            }
-        }
-    }
+    //         // 插入到设置面板的开头
+    //         const firstChild = settingsPanel.querySelector('.space-y-5');
+    //         if (firstChild) {
+    //             firstChild.insertBefore(userInfoSection, firstChild.firstChild);
+    //         }
+    //     } else {
+    //         // 更新现有用户信息
+    //         const usernameSpan = userInfoSection.querySelector('.text-white');
+    //         if (usernameSpan) {
+    //             usernameSpan.textContent = currentUser.username;
+    //         }
+    //     }
+    // }
 }
 
 // 启动令牌刷新定时器

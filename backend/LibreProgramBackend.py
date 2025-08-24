@@ -10,6 +10,8 @@ from functools import wraps
 import time
 import logging
 from logging.handlers import RotatingFileHandler
+import re
+
 
 app = Flask(__name__)
 CORS(app)
@@ -243,7 +245,7 @@ def set_refresh_token_cookie(response, token):
         token,
         httponly=True,
         secure=False,  # 开发环境设为False，生产环境应设为True
-        path='/api/auth/refresh',
+        path='/proxy/api/auth/refresh',
         samesite='Strict',
         max_age=app.config['REFRESH_TOKEN_EXPIRATION_DAYS'] * 24 * 3600
     )
@@ -283,8 +285,6 @@ def store_refresh_token(user_id, token):
     app.logger.info(f"已为用户 {user_id} 存储新的刷新令牌")
 
 # JWT认证装饰器
-
-
 def jwt_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -305,38 +305,6 @@ def jwt_required(f):
             f"用户 {payload['username']} (ID: {payload['user_id']}) 认证成功")
         return f(*args, **kwargs)
     return decorated_function
-
-# 检查用户名是否可用
-
-
-@app.route('/api/auth/check-username', methods=['POST'])
-def check_username():
-    try:
-        data = request.get_json()
-        username = data.get('username', '').strip()
-
-        if not username:
-            return jsonify({'error': '用户名不能为空'}), 400
-
-        if len(username) < 5:
-            return jsonify({'error': '用户名长度至少5个字符'}), 400
-
-        client_ip = get_client_ip()
-        if not check_rate_limit(client_ip, 'register'):
-            return jsonify({'error': '请求过于频繁，请稍后再试'}), 429
-
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.execute(
-                'SELECT id FROM users WHERE username = ?', (username,))
-            exists = cursor.fetchone() is not None
-
-            return jsonify({
-                'username': username,
-                'available': not exists
-            }), 200
-
-    except Exception as e:
-        return jsonify({'error': f'检查失败: {str(e)}'}), 500
 
 
 @app.route('/api/viewing-history/operation', methods=['GET', 'POST'])
@@ -384,9 +352,47 @@ def user_viewing_history():
     except Exception as e:
         return jsonify({'error': f'操作失败: {str(e)}'}), 500
 
+
+# 邮箱格式验证函数
+def is_valid_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+# 检查用户名是否可用
+@app.route('/api/auth/check-username', methods=['POST'])
+def check_username():
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+
+        if not username:
+            return jsonify({'error': '用户名不能为空'}), 400
+
+        # 验证用户名必须是邮箱格式
+        if not is_valid_email(username):
+            return jsonify({'error': '用户名必须是有效的邮箱格式'}), 400
+
+        if len(username) < 5 or len(username) > 50:
+            return jsonify({'error': '用户名长度必须在5-50个字符之间'}), 400
+
+        client_ip = get_client_ip()
+        if not check_rate_limit(client_ip, 'register'):
+            return jsonify({'error': '请求过于频繁，请稍后再试'}), 429
+
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.execute(
+                'SELECT id FROM users WHERE username = ?', (username,))
+            exists = cursor.fetchone() is not None
+
+            return jsonify({
+                'username': username,
+                'available': not exists
+            }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'检查失败: {str(e)}'}), 500
+
 # 用户注册
-
-
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     try:
@@ -400,6 +406,11 @@ def register():
         if not username or not password:
             app.logger.warning("注册请求缺少用户名或密码")
             return jsonify({'error': '用户名和密码不能为空'}), 400
+
+        # 验证用户名必须是邮箱格式
+        if not is_valid_email(username):
+            app.logger.warning(f"用户名格式无效: {username}")
+            return jsonify({'error': '用户名必须是有效的邮箱格式'}), 400
 
         if len(username) < 5 or len(username) > 50:
             app.logger.warning(f"用户名长度不符合要求: {username}")
@@ -423,6 +434,11 @@ def register():
 
             # 邮箱字段可选，如果提供则检查唯一性
             if email:  # 只有当提供了email时才检查
+                # 验证邮箱格式（如果提供）
+                if not is_valid_email(email):
+                    app.logger.warning(f"邮箱格式无效: {email}")
+                    return jsonify({'error': '邮箱格式无效'}), 400
+                    
                 cursor = conn.execute(
                     'SELECT id FROM users WHERE email = ?', (email,))
                 if cursor.fetchone():
@@ -474,9 +490,8 @@ def register():
         app.logger.error(f"注册过程中出错: {str(e)}")
         return jsonify({'error': f'注册失败: {str(e)}'}), 500
 
+
 # 用户登录
-
-
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     try:
@@ -571,8 +586,6 @@ def login():
         return jsonify({'error': f'登录失败: {str(e)}'}), 500
 
 # 刷新令牌
-
-
 @app.route('/api/auth/refresh', methods=['POST'])
 def refresh_token():
     try:
@@ -611,8 +624,6 @@ def refresh_token():
         return jsonify({'error': f'令牌刷新失败: {str(e)}'}), 500
 
 # 登出
-
-
 @app.route('/api/auth/logout', methods=['POST'])
 @jwt_required
 def logout():
@@ -641,8 +652,6 @@ def logout():
         return jsonify({'error': f'登出失败: {str(e)}'}), 500
 
 # 健康检查端点
-
-
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok', 'message': '服务正常运行'})
