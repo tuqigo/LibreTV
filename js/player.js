@@ -385,41 +385,6 @@ function initPlayer(videoUrl, sourceCode) {
                             }
                         } catch (_) { }
 
-                        // ===============================
-                        // 👇 可选功能：增加清晰度切换菜单
-                        // ===============================
-                        if (hls.levels && hls.levels.length > 0) {
-                            const qualities = hls.levels.map((level, i) => ({
-                                name: `${level.height || '?'}p`,
-                                url: video.src,   // DPlayer 要求字段，实际不会替换
-                                type: 'customHls',
-                                levelIndex: i
-                            }));
-
-                            // 倒序，最高码率放在最前
-                            qualities.reverse();
-
-                            player.updateSetting([
-                                {
-                                    name: 'quality',
-                                    type: 'switch',
-                                    default: 0, // 默认最高
-                                    list: qualities.map((q, idx) => ({
-                                        name: q.name,
-                                        index: idx
-                                    })),
-                                    onSwitch: function (item) {
-                                        const selected = qualities[item.index];
-                                        if (selected) {
-                                            hls.currentLevel = selected.levelIndex;
-                                            hls.autoLevelEnabled = false; // 保持手动模式
-                                            console.log(`手动切换到 ${selected.name}`);
-                                        }
-                                    }
-                                }
-                            ]);
-                        }
-
                     });
 
                     hls.on(Hls.Events.ERROR, function (event, data) {
