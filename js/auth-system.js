@@ -137,6 +137,7 @@ function clearAuthData() {
 
 // 用户登出
 function logout() {
+    localStorage.clear();
     clearAuthData();
     showAuthModal();
     updateUserDisplay();
