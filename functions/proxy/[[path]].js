@@ -85,6 +85,7 @@ export async function onRequest(context) {
         responseHeaders.set("Access-Control-Allow-Origin", "*"); // 允许任何来源访问
         responseHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS"); // 允许的方法
         responseHeaders.set("Access-Control-Allow-Headers", "*"); // 允许所有请求头
+        responseHeaders.set("Access-Control-Allow-Credentials", "true"); // 允许携带凭证
 
         // 处理 CORS 预检请求 (OPTIONS) - 放在这里确保所有响应都处理
         if (request.method === "OPTIONS") {
@@ -103,27 +104,117 @@ export async function onRequest(context) {
         // 检查是否是简化的API代理路径
         if (url.pathname.startsWith('/proxy/api/')) {
             // 从环境变量获取后端服务器地址
-            const backendUrl = env.BACKEND_URL || 'https://aa.bb.com';
-            
+            const backendUrl = env.BACKEND_URL || 'https://libretv.092201.xyz';
+
             // 提取API路径
             const apiPath = url.pathname.replace('/proxy/api', '');
             const targetUrl = `${backendUrl}/api${apiPath}`;
-            
+
             logDebug(`API代理请求: ${request.method} ${url.pathname} -> ${targetUrl}`);
 
+            // 获取客户端请求的Cookie
+            const clientCookies = request.headers.get('Cookie') || '';
+            logDebug(`客户端Cookie: ${clientCookies}`);
+
             // 构造到后端的同方法请求
+            const forwardedHeaders = new Headers();
+
+            // 复制所有原始头，但排除一些可能引起问题的头
+            for (const [key, value] of request.headers.entries()) {
+                // 跳过一些不应该转发的头
+                if (!['host', 'cookie', 'content-length'].includes(key.toLowerCase())) {
+                    forwardedHeaders.set(key, value);
+                }
+            }
+
+            // 设置必要的头，确保后端能正确处理
+            forwardedHeaders.set('Host', new URL(backendUrl).host);
+            forwardedHeaders.set('X-Forwarded-For', request.headers.get('CF-Connecting-IP') || '');
+            forwardedHeaders.set('X-Forwarded-Host', request.headers.get('Host') || '');
+            forwardedHeaders.set('X-Forwarded-Proto', new URL(request.url).protocol.replace(':', ''));
+
+            // 传递Cookie - 这是关键！
+            if (clientCookies) {
+                forwardedHeaders.set('Cookie', clientCookies);
+            }
+
+            // 对于POST请求，确保Content-Type正确设置
+            if (request.method === 'POST' || request.method === 'PUT') {
+                if (!forwardedHeaders.has('Content-Type')) {
+                    forwardedHeaders.set('Content-Type', 'application/json');
+                }
+                // 确保Content-Length正确（如果存在body）
+                if (request.body) {
+                    // 注意：在Cloudflare Workers中，我们无法直接获取body大小
+                    // 所以最好删除可能不正确的Content-Length头
+                    forwardedHeaders.delete('Content-Length');
+                }
+            }
+
             const forwarded = new Request(targetUrl, {
                 method: request.method,
-                headers: request.headers,
+                headers: forwardedHeaders,
                 body: request.body,
                 redirect: 'follow',
             });
-            
+
             const resp = await fetch(forwarded);
             const body = await resp.text();
-            
+
+            // 获取后端设置的Cookie
+            const setCookieHeader = resp.headers.get('Set-Cookie');
+            logDebug(`后端Set-Cookie: ${setCookieHeader}`);
+
+            // 构建响应头
+            const responseHeaders = new Headers(resp.headers);
+
+            // 处理后端设置的Cookie
+            if (setCookieHeader) {
+                // 处理可能的多个Cookie（Set-Cookie头可能有多个值）
+                const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+                const adjustedCookies = [];
+
+                for (const cookie of cookies) {
+                    let adjustedCookie = cookie;
+
+                    // 替换路径 - 处理所有可能的API路径
+                    if (adjustedCookie.includes('Path=/api/')) {
+                        adjustedCookie = adjustedCookie.replace(
+                            /Path=\/api\//g,
+                            'Path=/proxy/api/'
+                        );
+                    } else if (!adjustedCookie.includes('Path=')) {
+                        // 如果后端没有设置Path，则设置为代理路径
+                        adjustedCookie += '; Path=/proxy/api';
+                    }
+
+                    // 处理Domain - 移除后端特定的Domain设置
+                    if (adjustedCookie.includes('Domain=')) {
+                        const backendDomain = new URL(backendUrl).hostname;
+                        const proxyDomain = new URL(request.url).hostname;
+
+                        // 如果Domain设置的是后端域名，替换为代理域名
+                        if (adjustedCookie.includes(`Domain=${backendDomain}`)) {
+                            adjustedCookie = adjustedCookie.replace(
+                                `Domain=${backendDomain}`,
+                                `Domain=${proxyDomain}`
+                            );
+                        } else {
+                            // 否则完全移除Domain设置，让浏览器使用当前域名
+                            adjustedCookie = adjustedCookie.replace(/Domain=[^;]+;?/i, '');
+                        }
+                    }
+
+                    adjustedCookies.push(adjustedCookie);
+                    logDebug(`调整后的Cookie: ${adjustedCookie}`);
+                }
+
+                // 设置调整后的Cookie头
+                responseHeaders.set('Set-Cookie', adjustedCookies.join(', '));
+            }
+
             // 返回响应并添加CORS头
-            return createResponse(body, resp.status, Object.fromEntries(resp.headers));
+            return createResponse(body, resp.status, Object.fromEntries(responseHeaders));
         }
 
         // 原有的通用代理逻辑
@@ -151,4 +242,19 @@ export async function onRequest(context) {
         logDebug(`处理代理请求时发生严重错误: ${error.message} \n ${error.stack}`);
         return createResponse(`代理处理错误: ${error.message}`, 500);
     }
+}
+
+// 添加一个专门的OPTIONS处理函数
+export async function onRequestOptions(context) {
+    const { request } = context;
+    return new Response(null, {
+        status: 204,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+            'Access-Control-Allow-Headers': '*',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Max-Age': '86400',
+        }
+    });
 }
