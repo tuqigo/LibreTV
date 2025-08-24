@@ -199,6 +199,9 @@ async function checkUsernameAvailability() {
                 document.getElementById('registerUsername').style.borderColor = '#ef4444';
                 showError('用户名已被使用');
             }
+        }else{
+               document.getElementById('registerUsername').style.borderColor = '#ef4444';
+                 showError(data.error);
         }
     } catch (error) {
         console.error('检查用户名错误:', error);

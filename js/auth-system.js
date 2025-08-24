@@ -17,10 +17,10 @@ let tokenRefreshTimer = null;
 function initAuthSystem() {
     checkAuthStatus();
     startTokenRefreshTimer();
-    
+
     // 添加用户信息显示
     updateUserDisplay();
-    
+
     // 绑定弹框表单事件
     bindAuthModalEvents();
 }
@@ -29,7 +29,7 @@ function initAuthSystem() {
 function checkAuthStatus() {
     const token = getStoredToken();
     const user = getStoredUser();
-    
+
     if (token && user && !isTokenExpired(token)) {
         isAuthenticated = true;
         currentUser = user;
@@ -94,7 +94,7 @@ function isTokenExpired(token) {
 async function refreshToken() {
     const token = getStoredToken();
     if (!token) return false;
-    
+
     try {
         const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/refresh`, {
             method: 'POST',
@@ -103,7 +103,7 @@ async function refreshToken() {
                 'Content-Type': 'application/json',
             }
         });
-        
+
         if (response.ok) {
             const data = await response.json();
             storeAuthData(data.token, getStoredUser());
@@ -141,7 +141,7 @@ function logout() {
     clearAuthData();
     showAuthModal();
     updateUserDisplay();
-    
+
     // 显示登出成功消息
     if (window.showToast) {
         window.showToast('已成功登出', 'success');
@@ -155,7 +155,7 @@ function updateUserDisplay() {
     // if (settingTitle && currentUser) {
     //     settingTitle.innerText = currentUser.username + '的设置';
     // }
-    
+
     // // 添加用户信息到设置面板
     // const settingsPanel = document.getElementById('settingsPanel');
     // if (settingsPanel && currentUser) {
@@ -184,7 +184,7 @@ function updateUserDisplay() {
     //                 </div>
     //             </div>
     //         `;
-            
+
     //         // 插入到设置面板的开头
     //         const firstChild = settingsPanel.querySelector('.space-y-5');
     //         if (firstChild) {
@@ -205,7 +205,7 @@ function startTokenRefreshTimer() {
     if (tokenRefreshTimer) {
         clearInterval(tokenRefreshTimer);
     }
-    
+
     tokenRefreshTimer = setInterval(async () => {
         const token = getStoredToken();
         if (token && isTokenExpired(token)) {
@@ -239,7 +239,7 @@ function getCurrentUser() {
 }
 
 // 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     initAuthSystem();
 });
 
@@ -272,13 +272,13 @@ function bindAuthModalEvents() {
     if (loginForm) {
         loginForm.addEventListener('submit', handleLogin);
     }
-    
+
     // 绑定注册表单
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
         registerForm.addEventListener('submit', handleRegister);
     }
-    
+
     // 绑定用户名检查事件
     const registerUsername = document.getElementById('registerUsername');
     if (registerUsername) {
@@ -292,7 +292,7 @@ function switchAuthMode() {
     const registerForm = document.getElementById('registerForm');
     const switchText = document.getElementById('loginSwitchText');
     const switchBtn = document.getElementById('authSwitchBtn');
-    
+
     if (loginForm && registerForm && switchText && switchBtn) {
         if (loginForm.style.display !== 'none') {
             // 切换到注册模式
@@ -307,7 +307,7 @@ function switchAuthMode() {
             switchText.textContent = '还没有账号？';
             switchBtn.textContent = '立即注册';
         }
-        
+
         // 清空消息
         hideMessages();
     }
@@ -316,17 +316,17 @@ function switchAuthMode() {
 // 处理登录
 async function handleLogin(event) {
     event.preventDefault();
-    
+
     const username = document.getElementById('loginUsername')?.value.trim();
     const password = document.getElementById('loginPassword')?.value;
-    
+
     if (!username || !password) {
         showError('请填写完整的登录信息');
         return;
     }
-    
+
     setButtonLoading('loginBtn', true);
-    
+
     try {
         const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/login`, {
             method: 'POST',
@@ -335,19 +335,19 @@ async function handleLogin(event) {
             },
             body: JSON.stringify({ username, password })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             // 登录成功
             storeAuthData(data.token, data.user);
             showSuccess('登录成功！');
             hideAuthModal();
             syncConfig()
-            
+
             // 触发认证成功事件，让播放器页面初始化
             document.dispatchEvent(new CustomEvent('authVerified'));
-            
+
             // 延迟更新UI
             setTimeout(() => {
                 updateUserDisplay();
@@ -366,34 +366,34 @@ async function handleLogin(event) {
 // 处理注册
 async function handleRegister(event) {
     event.preventDefault();
-    
+
     const username = document.getElementById('registerUsername')?.value.trim();
     const password = document.getElementById('registerPassword')?.value;
     const confirmPassword = document.getElementById('confirmPassword')?.value;
-    
+
     // 验证输入
     if (!username || !password || !confirmPassword) {
         showError('请填写完整的注册信息');
         return;
     }
-    
+
     if (username.length < 3 || username.length > 50) {
         showError('用户名长度必须在3-50个字符之间');
         return;
     }
-    
+
     if (password.length < 6) {
         showError('密码长度至少6个字符');
         return;
     }
-    
+
     if (password !== confirmPassword) {
         showError('两次输入的密码不一致');
         return;
     }
-    
+
     setButtonLoading('registerBtn', true);
-    
+
     try {
         const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/register`, {
             method: 'POST',
@@ -402,18 +402,18 @@ async function handleRegister(event) {
             },
             body: JSON.stringify({ username, password })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             // 注册成功
             storeAuthData(data.token, data.user);
             showSuccess('登录成功！');
             hideAuthModal();
-            
+
             // 触发认证成功事件，让播放器页面初始化
             document.dispatchEvent(new CustomEvent('authVerified'));
-            
+
             // 延迟更新UI
             setTimeout(() => {
                 updateUserDisplay();
@@ -432,11 +432,11 @@ async function handleRegister(event) {
 // 检查用户名是否可用
 async function checkUsernameAvailability() {
     const username = document.getElementById('registerUsername')?.value.trim();
-    
+
     if (!username || username.length < 3) {
         return;
     }
-    
+
     try {
         const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/check-username`, {
             method: 'POST',
@@ -445,9 +445,9 @@ async function checkUsernameAvailability() {
             },
             body: JSON.stringify({ username })
         });
-        
+
         const data = await response.json();
-        
+
         if (response.ok) {
             if (data.available) {
                 // 用户名可用，可以添加视觉提示
@@ -459,6 +459,8 @@ async function checkUsernameAvailability() {
                 if (input) input.style.borderColor = '#ef4444';
                 showError('用户名已被使用');
             }
+        } else {
+            showError(data.error || '注册失败');
         }
     } catch (error) {
         console.error('检查用户名错误:', error);
@@ -469,10 +471,10 @@ async function checkUsernameAvailability() {
 function setButtonLoading(buttonId, loading) {
     const button = document.getElementById(buttonId);
     if (!button) return;
-    
+
     const btnText = button.querySelector('.btn-text');
     const loadingSpinner = button.querySelector('.loading');
-    
+
     if (loading) {
         button.disabled = true;
         if (btnText) btnText.style.display = 'none';
@@ -490,7 +492,7 @@ function showError(message) {
     if (errorElement) {
         errorElement.textContent = message;
         errorElement.style.display = 'block';
-        
+
         // 自动隐藏
         setTimeout(() => {
             hideMessages();
@@ -511,7 +513,7 @@ function showSuccess(message) {
 function hideMessages() {
     const errorElement = document.getElementById('errorMessage');
     const successElement = document.getElementById('successMessage');
-    
+
     if (errorElement) errorElement.style.display = 'none';
     if (successElement) successElement.style.display = 'none';
 }
