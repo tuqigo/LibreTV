@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibreTV - 简单测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>LibreTV 认证系统简单测试</h1>
+    
+    <div class="test-section">
+        <h2>当前状态</h2>
+        <button class="test-button" onclick="checkCurrentState()">检查当前状态</button>
+        <div id="currentState"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>路径测试</h2>
+        <button class="test-button" onclick="testPathDetection()">测试路径检测</button>
+        <button class="test-button" onclick="testRedirects()">测试重定向逻辑</button>
+        <div id="pathTest"></div>
+    </div>
+
+    <script src="js/auth-system.js"></script>
+    <script>
+        function showStatus(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status info">${message}</div>`;
+        }
+
+        function checkCurrentState() {
+            try {
+                if (!window.AuthSystem) {
+                    showStatus('currentState', '错误: 认证系统未加载');
+                    return;
+                }
+                
+                const state = window.AuthSystem.getAuthState();
+                showStatus('currentState', 
+                    `当前状态:\n${JSON.stringify(state, null, 2)}`
+                );
+            } catch (error) {
+                showStatus('currentState', `错误: ${error.message}`);
+            }
+        }
+
+        function testPathDetection() {
+            try {
+                const pathname = window.location.pathname;
+                const hostname = window.location.hostname;
+                const isProduction = window.location.hostname !== 'localhost' && 
+                                   window.location.hostname !== '127.0.0.1' &&
+                                   !window.location.hostname.includes('localhost');
+                
+                const pathInfo = {
+                    pathname: pathname,
+                    hostname: hostname,
+                    isProduction: isProduction,
+                    pageType: window.AuthSystem ? window.AuthSystem.getAuthState().pageType : 'unknown'
+                };
+                
+                showStatus('pathTest', 
+                    `路径信息:\n${JSON.stringify(pathInfo, null, 2)}`
+                );
+            } catch (error) {
+                showStatus('pathTest', `错误: ${error.message}`);
+            }
+        }
+
+        function testRedirects() {
+            try {
+                const isProduction = window.location.hostname !== 'localhost' && 
+                                   window.location.hostname !== '127.0.0.1' &&
+                                   !window.location.hostname.includes('localhost');
+                
+                let mainUrl, authUrl;
+                if (isProduction) {
+                    mainUrl = '/';
+                    authUrl = '/auth';
+                } else {
+                    mainUrl = 'index.html';
+                    authUrl = 'auth.html';
+                }
+                
+                const redirectInfo = {
+                    isProduction: isProduction,
+                    mainPageUrl: mainUrl,
+                    authPageUrl: authUrl,
+                    currentPath: window.location.pathname
+                };
+                
+                showStatus('pathTest', 
+                    `重定向逻辑:\n${JSON.stringify(redirectInfo, null, 2)}`
+                );
+            } catch (error) {
+                showStatus('pathTest', `错误: ${error.message}`);
+            }
+        }
+
+        // 页面加载完成后显示初始状态
+        document.addEventListener('DOMContentLoaded', function() {
+            checkCurrentState();
+        });
+    </script>
+</body>
+</html>
