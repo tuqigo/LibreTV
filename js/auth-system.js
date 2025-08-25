@@ -7,6 +7,7 @@ const AUTH_CONFIG = {
     USER_KEY: 'libretv_user_info',
     TOKEN_REFRESH_INTERVAL: 5 * 60 * 1000, // 5分钟检查一次令牌
     REDIRECT_DELAY: 1000, // 重定向延迟时间
+    MAX_REDIRECT_ATTEMPTS: 3, // 最大重定向尝试次数
 };
 
 // 全局认证状态
@@ -14,6 +15,7 @@ let isAuthenticated = false;
 let currentUser = null;
 let tokenRefreshTimer = null;
 let isRedirecting = false; // 防止重复重定向
+let redirectAttempts = 0; // 重定向尝试次数
 
 // 页面类型枚举
 const PAGE_TYPES = {
@@ -34,10 +36,17 @@ function getCurrentPageType() {
     }
 }
 
+// 检测是否为生产环境
+function isProductionEnvironment() {
+    return window.location.hostname !== 'localhost' && 
+           window.location.hostname !== '127.0.0.1' &&
+           !window.location.hostname.includes('localhost');
+}
+
 // 初始化认证系统
 function initAuthSystem() {
     const pageType = getCurrentPageType();
-    console.log('当前页面类型:', pageType);
+    console.log('当前页面类型:', pageType, '环境:', isProductionEnvironment() ? '生产' : '开发');
 
     // 防止重复初始化
     if (window.authSystemInitialized) {
@@ -99,6 +108,15 @@ function checkExistingAuth() {
     
     if (token && user && !isTokenExpired(token)) {
         console.log('检测到有效认证，准备重定向到首页');
+        
+        // 检查重定向尝试次数
+        if (redirectAttempts >= AUTH_CONFIG.MAX_REDIRECT_ATTEMPTS) {
+            console.error('重定向尝试次数过多，清除认证数据');
+            clearAuthData();
+            redirectAttempts = 0;
+            return { isValid: false, token: null, user: null };
+        }
+        
         // 延迟重定向，避免页面闪烁
         setTimeout(() => {
             redirectToMain();
@@ -140,14 +158,26 @@ function redirectToMain() {
         return;
     }
     
+    // 检查重定向尝试次数
+    if (redirectAttempts >= AUTH_CONFIG.MAX_REDIRECT_ATTEMPTS) {
+        console.error('重定向尝试次数过多，停止重定向');
+        clearAuthData();
+        redirectAttempts = 0;
+        return;
+    }
+    
     isRedirecting = true;
-    console.log('重定向到主页面');
+    redirectAttempts++;
+    console.log(`重定向到主页面 (尝试 ${redirectAttempts}/${AUTH_CONFIG.MAX_REDIRECT_ATTEMPTS})`);
     
     try {
-        window.location.href = 'index.html';
+        // 在生产环境中使用相对路径
+        const targetUrl = isProductionEnvironment() ? './index.html' : 'index.html';
+        window.location.href = targetUrl;
     } catch (error) {
         console.error('重定向失败:', error);
         isRedirecting = false;
+        redirectAttempts--;
     }
 }
 
@@ -164,14 +194,25 @@ function redirectToAuth() {
         return;
     }
     
+    // 检查重定向尝试次数
+    if (redirectAttempts >= AUTH_CONFIG.MAX_REDIRECT_ATTEMPTS) {
+        console.error('重定向尝试次数过多，停止重定向');
+        redirectAttempts = 0;
+        return;
+    }
+    
     isRedirecting = true;
-    console.log('重定向到认证页面');
+    redirectAttempts++;
+    console.log(`重定向到认证页面 (尝试 ${redirectAttempts}/${AUTH_CONFIG.MAX_REDIRECT_ATTEMPTS})`);
     
     try {
-        window.location.href = 'auth.html';
+        // 在生产环境中使用相对路径
+        const targetUrl = isProductionEnvironment() ? './auth.html' : 'auth.html';
+        window.location.href = targetUrl;
     } catch (error) {
         console.error('重定向失败:', error);
         isRedirecting = false;
+        redirectAttempts--;
     }
 }
 
@@ -342,6 +383,7 @@ function clearAuthData() {
         isAuthenticated = false;
         currentUser = null;
         isRedirecting = false; // 重置重定向状态
+        redirectAttempts = 0; // 重置重定向尝试次数
         
         console.log('认证数据已清除');
     } catch (error) {
@@ -765,6 +807,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const pageType = getCurrentPageType();
         document.body.setAttribute('data-page-type', pageType);
         
+        // 检查是否有紧急停止标志
+        if (sessionStorage.getItem('auth_emergency_stop')) {
+            console.error('检测到紧急停止标志，跳过认证系统初始化');
+            sessionStorage.removeItem('auth_emergency_stop');
+            return;
+        }
+        
         // 初始化认证系统
         initAuthSystem();
         
@@ -791,6 +840,7 @@ window.addEventListener('beforeunload', () => {
         
         // 重置重定向状态
         isRedirecting = false;
+        redirectAttempts = 0;
         
         // 清除初始化标记
         window.authSystemInitialized = false;
@@ -821,6 +871,33 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// 添加紧急停止函数
+function emergencyStop() {
+    console.error('紧急停止认证系统');
+    sessionStorage.setItem('auth_emergency_stop', 'true');
+    
+    // 清除所有认证数据
+    clearAuthData();
+    
+    // 停止所有定时器
+    if (tokenRefreshTimer) {
+        clearInterval(tokenRefreshTimer);
+        tokenRefreshTimer = null;
+    }
+    
+    // 重置所有状态
+    isAuthenticated = false;
+    currentUser = null;
+    isRedirecting = false;
+    redirectAttempts = 0;
+    window.authSystemInitialized = false;
+    
+    // 显示错误消息
+    if (getCurrentPageType() === PAGE_TYPES.AUTH) {
+        showError('系统检测到异常，已自动停止。请刷新页面重试。');
+    }
+}
+
 // 导出认证相关函数供其他脚本使用
 window.AuthSystem = {
     checkAuthStatus,
@@ -834,12 +911,15 @@ window.AuthSystem = {
     refreshToken,
     clearAuthData,
     storeAuthData,
+    emergencyStop, // 新增紧急停止函数
     // 新增调试函数
     getAuthState: () => ({
         isAuthenticated,
         currentUser,
         isRedirecting,
-        pageType: getCurrentPageType()
+        redirectAttempts,
+        pageType: getCurrentPageType(),
+        isProduction: isProductionEnvironment()
     }),
     // 强制重新检查认证状态
     forceCheckAuth: () => {
@@ -858,16 +938,34 @@ window.goToAuth = goToAuth;
 window.checkAuthStatus = checkAuthStatus;
 window.logout = logout;
 window.switchAuthMode = switchAuthMode;
+window.emergencyStop = emergencyStop; // 新增紧急停止函数
 
 // 添加全局错误处理
 window.addEventListener('error', (event) => {
     console.error('全局错误:', event.error);
+    
+    // 如果是重定向相关错误，触发紧急停止
+    if (event.error && event.error.message && 
+        (event.error.message.includes('redirect') || 
+         event.error.message.includes('navigation'))) {
+        console.error('检测到重定向错误，触发紧急停止');
+        emergencyStop();
+    }
 });
 
 window.addEventListener('unhandledrejection', (event) => {
     console.error('未处理的Promise拒绝:', event.reason);
+    
+    // 如果是重定向相关错误，触发紧急停止
+    if (event.reason && event.reason.message && 
+        (event.reason.message.includes('redirect') || 
+         event.reason.message.includes('navigation'))) {
+        console.error('检测到重定向Promise错误，触发紧急停止');
+        emergencyStop();
+    }
 });
 
 // 调试信息
-console.log('LibreTV认证系统已加载，版本:', '2.0.0');
+console.log('LibreTV认证系统已加载，版本:', '2.1.0');
 console.log('配置:', AUTH_CONFIG);
+console.log('当前环境:', isProductionEnvironment() ? '生产环境' : '开发环境');

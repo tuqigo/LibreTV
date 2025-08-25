@@ -40,9 +40,17 @@ document.addEventListener('DOMContentLoaded', function () {
         // 用户已认证，直接初始化页面
         initializePageContent();
     } else {
-        // 用户未认证，显示认证弹框
-        if (window.AuthSystem) {
-            window.AuthSystem.showAuthModal();
+        // 用户未认证，检查当前页面类型
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('auth.html')) {
+            // 如果当前在认证页面，不需要跳转
+            console.log('当前在认证页面，等待用户认证');
+        } else {
+            // 用户未认证且不在认证页面，显示认证弹框
+            if (window.AuthSystem) {
+                console.log('用户未认证，跳转到认证页面');
+                window.AuthSystem.showAuthModal();
+            }
         }
     }
 });
