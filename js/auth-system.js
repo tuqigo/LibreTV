@@ -139,16 +139,13 @@ const tokenManager = {
     },
 
     async refresh() {
-        const token = authStorage.getToken();
-        if (!token) return false;
-
         try {
             const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/refresh`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
-                }
+                },
+                credentials: 'include' // 确保发送Cookie
             });
 
             if (response.ok) {
@@ -301,7 +298,8 @@ const formHandler = {
             const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password }),
+                credentials: 'include' // 确保发送和接收Cookie
             });
 
             const data = await response.json();
@@ -357,7 +355,8 @@ const formHandler = {
             const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
+                body: JSON.stringify({ username, email, password }),
+                credentials: 'include' // 确保发送和接收Cookie
             });
 
             const data = await response.json();

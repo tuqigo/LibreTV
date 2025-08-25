@@ -42,7 +42,7 @@ app.config['SECRET_KEY'] = os.environ.get(
 app.config['REFRESH_SECRET_KEY'] = os.environ.get(
     'JWT_REFRESH_SECRET_KEY', 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f')
 app.config['JWT_ALGORITHM'] = 'HS256'
-app.config['ACCESS_TOKEN_EXPIRATION_HOURS'] = 1  # Access Token 1小时过期
+app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] = 5  # Access Token 5分钟过期
 app.config['REFRESH_TOKEN_EXPIRATION_DAYS'] = 7  # Refresh Token 7天过期
 
 DB_PATH = 'data/libretv.db'
@@ -132,7 +132,7 @@ def generate_access_token(user_id, username):
     payload = {
         'user_id': user_id,
         'username': username,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=app.config['ACCESS_TOKEN_EXPIRATION_HOURS']),
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=app.config['ACCESS_TOKEN_EXPIRATION_MINUTES']),
         'iat': datetime.datetime.utcnow(),
         'type': 'access'
     }
@@ -245,8 +245,8 @@ def set_refresh_token_cookie(response, token):
         token,
         httponly=True,
         secure=False,  # 开发环境设为False，生产环境应设为True
-        path='/proxy/api/auth/refresh',
-        samesite='Strict',
+        path='/proxy/api/auth/refresh',  # 确保路径与前端请求路径完全匹配
+        samesite='Strict',  # 保持Strict以确保安全性
         max_age=app.config['REFRESH_TOKEN_EXPIRATION_DAYS'] * 24 * 3600
     )
     return response
@@ -605,12 +605,31 @@ def refresh_token():
         user_id = payload['user_id']
         username = payload['username']
 
+        # 从数据库获取完整的用户信息
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.execute(
+                'SELECT username, email FROM users WHERE id = ?', (user_id,)
+            )
+            user_data = cursor.fetchone()
+            
+            if not user_data:
+                app.logger.error(f"用户 {user_id} 不存在")
+                return jsonify({'error': '用户不存在'}), 404
+
         # 生成新的访问令牌
         new_access_token = generate_access_token(user_id, username)
 
+        # 构建用户信息
+        user_info = {
+            'id': user_id,
+            'username': user_data[0],
+            'email': user_data[1]
+        }
+
         response_data = {
             'message': '令牌刷新成功',
-            'token': new_access_token
+            'token': new_access_token,
+            'user': user_info
         }
 
         response = make_response(jsonify(response_data))
