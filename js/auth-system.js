@@ -1,5 +1,5 @@
 // LibreTV JWT认证系统集成
-// 这个文件用于在现有页面中集成JWT认证功能
+// 这个文件整合了所有认证功能，可以自动检测页面类型并选择合适的初始化逻辑
 
 const AUTH_CONFIG = {
     API_BASE_URL: '/proxy/api', // 通过代理访问后端API
@@ -13,19 +13,61 @@ let isAuthenticated = false;
 let currentUser = null;
 let tokenRefreshTimer = null;
 
-// 初始化认证系统
-function initAuthSystem() {
-    checkAuthStatus();
-    startTokenRefreshTimer();
-
-    // 添加用户信息显示
-    updateUserDisplay();
-
-    // 绑定弹框表单事件
-    bindAuthModalEvents();
+// 检测当前页面类型
+function getCurrentPageType() {
+    const pathname = window.location.pathname;
+    if (pathname.includes('auth.html')) {
+        return 'auth';
+    } else if (pathname.includes('player.html')) {
+        return 'player';
+    } else {
+        return 'main'; // index.html 或其他页面
+    }
 }
 
-// 检查认证状态
+// 初始化认证系统
+function initAuthSystem() {
+    const pageType = getCurrentPageType();
+    console.log('当前页面类型:', pageType);
+
+    if (pageType === 'auth') {
+        // 认证页面初始化
+        initAuthPage();
+    } else {
+        // 主页面或播放器页面初始化
+        initMainPage();
+    }
+}
+
+// 认证页面初始化
+function initAuthPage() {
+    // 检查现有认证状态
+    checkExistingAuth();
+    
+    // 绑定表单事件
+    bindAuthFormEvents();
+    
+    // 设置令牌刷新定时器
+    startTokenRefreshTimer();
+}
+
+// 主页面初始化
+function initMainPage() {
+    checkAuthStatus();
+    startTokenRefreshTimer();
+    updateUserDisplay();
+}
+
+// 检查现有认证状态（用于认证页面）
+function checkExistingAuth() {
+    const token = getStoredToken();
+    if (token && !isTokenExpired(token)) {
+        // 如果令牌有效，重定向到首页
+        window.location.href = 'index.html';
+    }
+}
+
+// 检查认证状态（用于主页面）
 function checkAuthStatus() {
     const token = getStoredToken();
     const user = getStoredUser();
@@ -33,7 +75,6 @@ function checkAuthStatus() {
     if (token && user && !isTokenExpired(token)) {
         isAuthenticated = true;
         currentUser = user;
-        hideAuthModal();
         updateUserDisplay();
         return true;
     } else {
@@ -49,23 +90,11 @@ function checkAuthStatus() {
 
 // 显示认证弹窗
 function showAuthModal() {
-    const authModal = document.getElementById('authModal');
-    if (authModal) {
-        authModal.style.display = 'flex';
-    }
+    window.location.href = 'auth.html';
 }
 
-// 隐藏认证弹窗
-function hideAuthModal() {
-    const authModal = document.getElementById('authModal');
-    if (authModal) {
-        authModal.style.display = 'none';
-    }
-}
-
-// 前往认证页面（已废弃，现在使用弹框）
+// 前往认证页面
 function goToAuth() {
-    // 不再跳转，直接显示弹框
     showAuthModal();
 }
 
@@ -93,7 +122,6 @@ function isTokenExpired(token) {
 // 刷新令牌
 async function refreshToken() {
     const token = getStoredToken();
-    console.log("refresh之前的token： " + token)
     if (!token) return false;
 
     try {
@@ -107,7 +135,6 @@ async function refreshToken() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log("refresh之后的token： " + token)
             storeAuthData(data.token, getStoredUser());
             return true;
         } else {
@@ -157,49 +184,6 @@ function updateUserDisplay() {
     if (settingTitle && currentUser) {
         settingTitle.innerText = currentUser.username + '的设置';
     }
-
-    // // 添加用户信息到设置面板
-    // const settingsPanel = document.getElementById('settingsPanel');
-    // if (settingsPanel && currentUser) {
-    //     // 检查是否已经添加了用户信息区域
-    //     let userInfoSection = settingsPanel.querySelector('.user-info-section');
-    //     if (!userInfoSection) {
-    //         userInfoSection = document.createElement('div');
-    //         userInfoSection.className = 'user-info-section p-3 bg-[#151515] rounded-lg shadow-inner mb-5';
-    //         userInfoSection.innerHTML = `
-    //             <label class="block text-sm font-medium text-gray-400 mb-3 border-b border-[#333] pb-1">用户信息</label>
-    //             <div class="space-y-2 text-sm">
-    //                 <div class="flex justify-between">
-    //                     <span class="text-gray-400">用户名:</span>
-    //                     <span class="text-white">${currentUser.username}</span>
-    //                 </div>
-    //                 ${currentUser.email ? `
-    //                 <div class="flex justify-between">
-    //                     <span class="text-gray-400">邮箱:</span>
-    //                     <span class="text-white">${currentUser.email}</span>
-    //                 </div>
-    //                 ` : ''}
-    //                 <div class="pt-2">
-    //                     <button onclick="logout()" class="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors">
-    //                         退出登录
-    //                     </button>
-    //                 </div>
-    //             </div>
-    //         `;
-
-    //         // 插入到设置面板的开头
-    //         const firstChild = settingsPanel.querySelector('.space-y-5');
-    //         if (firstChild) {
-    //             firstChild.insertBefore(userInfoSection, firstChild.firstChild);
-    //         }
-    //     } else {
-    //         // 更新现有用户信息
-    //         const usernameSpan = userInfoSection.querySelector('.text-white');
-    //         if (usernameSpan) {
-    //             usernameSpan.textContent = currentUser.username;
-    //         }
-    //     }
-    // }
 }
 
 // 启动令牌刷新定时器
@@ -240,35 +224,8 @@ function getCurrentUser() {
     return currentUser;
 }
 
-// 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', function () {
-    initAuthSystem();
-});
-
-// 页面卸载时清理定时器
-window.addEventListener('beforeunload', () => {
-    if (tokenRefreshTimer) {
-        clearInterval(tokenRefreshTimer);
-    }
-});
-
-// 导出认证相关函数供其他脚本使用
-window.AuthSystem = {
-    checkAuthStatus,
-    isUserAuthenticated,
-    getCurrentUser,
-    getStoredToken,
-    getStoredUser,
-    getAuthHeaders,
-    logout,
-    goToAuth,
-    refreshToken,
-    clearAuthData,
-    storeAuthData
-};
-
-// 绑定弹框表单事件
-function bindAuthModalEvents() {
+// 绑定认证表单事件
+function bindAuthFormEvents() {
     // 绑定登录表单
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
@@ -343,17 +300,12 @@ async function handleLogin(event) {
         if (response.ok) {
             // 登录成功
             storeAuthData(data.token, data.user);
-            showSuccess('登录成功！');
-            hideAuthModal();
-            syncConfig()
-
-            // 触发认证成功事件，让播放器页面初始化
-            document.dispatchEvent(new CustomEvent('authVerified'));
-
-            // 延迟更新UI
+            showSuccess('登录成功，正在跳转...');
+            
+            // 延迟跳转，让用户看到成功消息
             setTimeout(() => {
-                updateUserDisplay();
-            }, 1000);
+                window.location.href = 'index.html';
+            }, 1500);
         } else {
             showError(data.error || '登录失败');
         }
@@ -370,6 +322,7 @@ async function handleRegister(event) {
     event.preventDefault();
 
     const username = document.getElementById('registerUsername')?.value.trim();
+    const email = document.getElementById('registerEmail')?.value.trim();
     const password = document.getElementById('registerPassword')?.value;
     const confirmPassword = document.getElementById('confirmPassword')?.value;
 
@@ -379,8 +332,8 @@ async function handleRegister(event) {
         return;
     }
 
-    if (username.length < 3 || username.length > 50) {
-        showError('用户名长度必须在3-50个字符之间');
+    if (username.length < 3 || username.length > 20) {
+        showError('用户名长度必须在3-20个字符之间');
         return;
     }
 
@@ -402,7 +355,7 @@ async function handleRegister(event) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, email, password })
         });
 
         const data = await response.json();
@@ -410,16 +363,12 @@ async function handleRegister(event) {
         if (response.ok) {
             // 注册成功
             storeAuthData(data.token, data.user);
-            showSuccess('登录成功！');
-            hideAuthModal();
-
-            // 触发认证成功事件，让播放器页面初始化
-            document.dispatchEvent(new CustomEvent('authVerified'));
-
-            // 延迟更新UI
+            showSuccess('注册成功，正在跳转...');
+            
+            // 延迟跳转
             setTimeout(() => {
-                updateUserDisplay();
-            }, 1000);
+                window.location.href = 'index.html';
+            }, 1500);
         } else {
             showError(data.error || '注册失败');
         }
@@ -462,7 +411,9 @@ async function checkUsernameAvailability() {
                 showError('用户名已被使用');
             }
         } else {
-            showError(data.error || '注册失败');
+            const input = document.getElementById('registerUsername');
+            if (input) input.style.borderColor = '#ef4444';
+            showError(data.error || '检查失败');
         }
     } catch (error) {
         console.error('检查用户名错误:', error);
@@ -519,6 +470,33 @@ function hideMessages() {
     if (errorElement) errorElement.style.display = 'none';
     if (successElement) successElement.style.display = 'none';
 }
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function () {
+    initAuthSystem();
+});
+
+// 页面卸载时清理定时器
+window.addEventListener('beforeunload', () => {
+    if (tokenRefreshTimer) {
+        clearInterval(tokenRefreshTimer);
+    }
+});
+
+// 导出认证相关函数供其他脚本使用
+window.AuthSystem = {
+    checkAuthStatus,
+    isUserAuthenticated,
+    getCurrentUser,
+    getStoredToken,
+    getStoredUser,
+    getAuthHeaders,
+    logout,
+    goToAuth,
+    refreshToken,
+    clearAuthData,
+    storeAuthData
+};
 
 // 全局函数，供HTML中的onclick调用
 window.goToAuth = goToAuth;
