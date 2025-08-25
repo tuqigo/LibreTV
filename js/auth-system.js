@@ -334,8 +334,8 @@ const formHandler = {
             return;
         }
 
-        if (username.length < 3 || username.length > 20) {
-            this.showError('用户名长度必须在3-20个字符之间');
+        if (username.length < 3 || username.length > 50) {
+            this.showError('用户名长度必须在3-50个字符之间');
             return;
         }
 
@@ -544,6 +544,21 @@ function switchAuthMode() {
         switchBtn.textContent = isLoginMode ? '立即登录' : '立即注册';
         
         formHandler.hideMessages();
+        
+        // 重置注册表单的输入框状态
+        const registerUsername = document.getElementById('registerUsername');
+        if (registerUsername) {
+            registerUsername.style.borderColor = '';
+            registerUsername.title = '';
+        }
+        
+        // 清空所有输入框
+        const inputs = document.querySelectorAll('.form-input');
+        inputs.forEach(input => {
+            input.value = '';
+            input.style.borderColor = '';
+            input.title = '';
+        });
     }
 }
 
