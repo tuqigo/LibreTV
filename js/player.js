@@ -27,23 +27,32 @@ let progressSaveInterval = null; // 定期保存进度的计时器
 window.__hlsSegmentCache = window.__hlsSegmentCache || (window.HlsSegmentCache ? new window.HlsSegmentCache({ maxBytes: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.maxBytes) || undefined, ttlMs: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.ttlMs) || undefined }) : null);
 
 
-// 页面加载
-document.addEventListener('DOMContentLoaded', function () {
-    // 先检查用户是否已通过密码验证
-    if (!isPasswordVerified()) {
-        // 隐藏加载提示
-        document.getElementById('loading').style.display = 'none';
-        return;
-    }
-
+// 监听认证成功事件
+document.addEventListener('authVerified', () => {
+    document.getElementById('loading').style.display = 'block';
     initializePageContent();
 });
 
-// 监听密码验证成功事件
-document.addEventListener('passwordVerified', () => {
-    document.getElementById('loading').style.display = 'block';
-
-    initializePageContent();
+// 页面加载完成后检查认证状态
+document.addEventListener('DOMContentLoaded', function () {
+    // 检查认证状态
+    if (window.AuthSystem && window.AuthSystem.isUserAuthenticated()) {
+        // 用户已认证，直接初始化页面
+        initializePageContent();
+    } else {
+        // 用户未认证，检查当前页面类型
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('auth.html')) {
+            // 如果当前在认证页面，不需要跳转
+            console.log('当前在认证页面，等待用户认证');
+        } else {
+            // 用户未认证且不在认证页面，显示认证弹框
+            if (window.AuthSystem) {
+                console.log('用户未认证，跳转到认证页面');
+                window.AuthSystem.showAuthModal();
+            }
+        }
+    }
 });
 
 // 初始化页面内容
@@ -245,7 +254,9 @@ function showShortcutHint(text, direction) {
 // 初始化播放器
 function initPlayer(videoUrl, sourceCode) {
     if (!videoUrl) return;
-
+    if (dp) {
+        dp.destroy();
+    }
 
     // 配置HLS.js选项
     const hlsConfig = {
@@ -310,6 +321,7 @@ function initPlayer(videoUrl, sourceCode) {
             pic: 'image/nomedia.png', // 设置视频封面图
             customType: {
                 hls: function (video, player) {
+                    
                     // 清理之前的HLS实例
                     if (currentHls && currentHls.destroy) {
                         try {
@@ -360,6 +372,17 @@ function initPlayer(videoUrl, sourceCode) {
                         video.play().catch(e => {
                             console.warn('自动播放被阻止:', e);
                         });
+
+                        // ===============================
+                        // 🔥 默认强制最高码率
+                        // ===============================
+                        if (hls.levels && hls.levels.length > 0) {
+                            const maxLevel = hls.levels.length - 1;
+                            hls.currentLevel = maxLevel;   // 👈 切最高
+                            hls.autoLevelEnabled = false;  // 👈 禁止自动降级
+                            console.log(`已切换最高码率: ${hls.levels[maxLevel].height || '?'}p`);
+                        }
+
                         // 初始化分片预取器
                         try {
                             if (window.HlsSegmentPrefetcher && window.__hlsSegmentCache) {
@@ -369,11 +392,12 @@ function initPlayer(videoUrl, sourceCode) {
                                 }
                             }
                         } catch (_) { }
+
                     });
 
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         console.log('HLS事件:', event, '数据:', data);
-
+                       
                         // 增加错误计数
                         errorCount++;
 
@@ -414,6 +438,21 @@ function initPlayer(videoUrl, sourceCode) {
                                         errorDisplayed = true;
                                         showError('视频加载失败，可能是格式不兼容或源不可用');
                                     }
+                                    break;
+                            }
+                        }
+
+                         // 👇 错误恢复逻辑，避免播放卡死
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    hls.startLoad(); // 👈 重新加载
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    hls.recoverMediaError(); // 👈 恢复媒体错误
+                                    break;
+                                default:
+                                    hls.destroy(); // 👈 彻底销毁
                                     break;
                             }
                         }
@@ -594,6 +633,8 @@ function initPlayer(videoUrl, sourceCode) {
         });
     })();
 }
+
+
 
 // 自定义M3U8 Loader用于过滤广告
 class CustomHlsJsLoader extends Hls.DefaultConfig.loader {

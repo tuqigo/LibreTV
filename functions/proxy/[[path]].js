@@ -85,6 +85,7 @@ export async function onRequest(context) {
         responseHeaders.set("Access-Control-Allow-Origin", "*"); // 允许任何来源访问
         responseHeaders.set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS"); // 允许的方法
         responseHeaders.set("Access-Control-Allow-Headers", "*"); // 允许所有请求头
+        responseHeaders.set("Access-Control-Allow-Credentials", "true"); // 允许携带凭证
 
         // 处理 CORS 预检请求 (OPTIONS) - 放在这里确保所有响应都处理
         if (request.method === "OPTIONS") {
@@ -100,6 +101,170 @@ export async function onRequest(context) {
 
     // --- 主要请求处理逻辑 ---
     try {
+        // 检查是否是简化的API代理路径
+        if (url.pathname.startsWith('/proxy/api/')) {
+            // 从环境变量获取后端服务器地址
+            const backendUrl = env.BACKEND_URL || 'https://libretv.092201.xyz';
+
+            // 提取API路径和查询参数
+            const apiPath = url.pathname.replace('/proxy/api', '');
+
+            // 构建目标URL，包含原始查询参数
+            let targetUrl = `${backendUrl}/api${apiPath}`;
+
+            // 添加原始查询参数
+            if (url.search) {
+                targetUrl += url.search;
+            }
+
+            logDebug(`API代理请求: ${request.method} ${url.pathname} -> ${targetUrl}`);
+            logDebug(`查询参数: ${url.search}`);
+
+            // 获取客户端请求的Cookie
+            const clientCookies = request.headers.get('Cookie') || '';
+            logDebug(`客户端Cookie: ${clientCookies}`);
+
+            // 构造到后端的同方法请求
+            const forwardedHeaders = new Headers();
+
+            // 复制所有原始头，但排除一些可能引起问题的头
+            for (const [key, value] of request.headers.entries()) {
+                // 只排除host头，其他头都转发
+                if (key.toLowerCase() !== 'host') {
+                    forwardedHeaders.set(key, value);
+                }
+            }
+
+            // 设置必要的头，确保后端能正确处理
+            forwardedHeaders.set('Host', new URL(backendUrl).host);
+            forwardedHeaders.set('X-Forwarded-For', request.headers.get('CF-Connecting-IP') || '');
+            forwardedHeaders.set('X-Forwarded-Host', request.headers.get('Host') || '');
+            forwardedHeaders.set('X-Forwarded-Proto', new URL(request.url).protocol.replace(':', ''));
+
+            // 传递Cookie - 这是关键！
+            if (clientCookies) {
+                forwardedHeaders.set('Cookie', clientCookies);
+            }
+
+            // 对于GET/HEAD请求，不应该有body
+            let requestBody = null;
+            if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
+                requestBody = request.body;
+
+                // 确保Content-Type正确设置
+                if (!forwardedHeaders.has('Content-Type')) {
+                    forwardedHeaders.set('Content-Type', 'application/json');
+                }
+            }
+
+            const forwarded = new Request(targetUrl, {
+                method: request.method,
+                headers: forwardedHeaders,
+                body: requestBody,
+                redirect: 'follow',
+            });
+
+            logDebug(`转发请求: ${forwarded.method} ${forwarded.url}`);
+            logDebug(`转发头: ${JSON.stringify(Object.fromEntries(forwardedHeaders))}`);
+
+            const resp = await fetch(forwarded);
+            const body = await resp.text();
+
+            // 获取后端设置的Cookie
+            const setCookieHeader = resp.headers.get('Set-Cookie');
+            logDebug(`后端Set-Cookie: ${setCookieHeader}`);
+            logDebug(`响应状态: ${resp.status}`);
+
+            // 构建响应头
+            const responseHeaders = new Headers(resp.headers);
+
+            // 处理后端设置的Cookie
+            if (setCookieHeader) {
+                // 处理可能的多个Cookie（Set-Cookie头可能有多个值）
+                const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+                const adjustedCookies = [];
+
+                for (const cookie of cookies) {
+                    let adjustedCookie = cookie;
+                    logDebug(`处理Cookie: ${adjustedCookie}`);
+
+                    // 特殊处理刷新令牌Cookie - 确保路径正确
+                    if (adjustedCookie.includes('refreshToken')) {
+                        logDebug('检测到刷新令牌Cookie，进行特殊处理');
+                        
+                        // 刷新令牌应该设置到 /proxy/api/auth/refresh 路径
+                        if (adjustedCookie.includes('Path=/proxy/api/auth/refresh')) {
+                            logDebug('路径已经正确，无需修改');
+                        } else if (adjustedCookie.includes('Path=/api/auth/refresh')) {
+                            // 替换路径
+                            adjustedCookie = adjustedCookie.replace(
+                                'Path=/api/auth/refresh',
+                                'Path=/proxy/api/auth/refresh'
+                            );
+                            logDebug('已替换Cookie路径');
+                        } else if (!adjustedCookie.includes('Path=')) {
+                            // 如果没有设置Path，添加正确的路径
+                            adjustedCookie += '; Path=/proxy/api/auth/refresh';
+                            logDebug('已添加Cookie路径');
+                        }
+
+                        // 确保SameSite=Strict设置正确
+                        if (!adjustedCookie.includes('SameSite=')) {
+                            adjustedCookie += '; SameSite=Strict';
+                            logDebug('已添加SameSite=Strict');
+                        }
+
+                        // 确保HttpOnly设置正确
+                        if (!adjustedCookie.includes('HttpOnly')) {
+                            adjustedCookie += '; HttpOnly';
+                            logDebug('已添加HttpOnly');
+                        }
+                    } else {
+                        // 处理其他Cookie的路径
+                        if (adjustedCookie.includes('Path=/api/')) {
+                            adjustedCookie = adjustedCookie.replace(
+                                /Path=\/api\//g,
+                                'Path=/proxy/api/'
+                            );
+                        } else if (!adjustedCookie.includes('Path=')) {
+                            // 如果后端没有设置Path，则设置为代理路径
+                            adjustedCookie += '; Path=/proxy/api';
+                        }
+                    }
+
+                    // 处理Domain - 移除后端特定的Domain设置
+                    if (adjustedCookie.includes('Domain=')) {
+                        const backendDomain = new URL(backendUrl).hostname;
+                        const proxyDomain = new URL(request.url).hostname;
+
+                        // 如果Domain设置的是后端域名，替换为代理域名
+                        if (adjustedCookie.includes(`Domain=${backendDomain}`)) {
+                            adjustedCookie = adjustedCookie.replace(
+                                `Domain=${backendDomain}`,
+                                `Domain=${proxyDomain}`
+                            );
+                            logDebug(`已替换Domain: ${backendDomain} -> ${proxyDomain}`);
+                        } else {
+                            // 否则完全移除Domain设置，让浏览器使用当前域名
+                            adjustedCookie = adjustedCookie.replace(/Domain=[^;]+;?/i, '');
+                            logDebug('已移除Domain设置');
+                        }
+                    }
+
+                    adjustedCookies.push(adjustedCookie);
+                    logDebug(`调整后的Cookie: ${adjustedCookie}`);
+                }
+
+                // 设置调整后的Cookie头
+                responseHeaders.set('Set-Cookie', adjustedCookies.join(', '));
+                logDebug(`最终Set-Cookie头: ${adjustedCookies.join(', ')}`);
+            }
+
+            // 返回响应并添加CORS头
+            return createResponse(body, resp.status, Object.fromEntries(responseHeaders));
+        }
+
+        // 原有的通用代理逻辑
         const targetUrl = getTargetUrlFromPath(url.pathname);
 
         if (!targetUrl) {
@@ -107,8 +272,7 @@ export async function onRequest(context) {
             return createResponse("无效的代理请求。路径应为 /proxy/<经过编码的URL>", 400);
         }
 
-        logDebug(`收到代理请求: ${targetUrl}`);
-
+        logDebug(`收到通用代理请求: ${targetUrl}`);
 
         // 构造到后端的同方法请求
         const forwarded = new Request(targetUrl, {
@@ -125,4 +289,19 @@ export async function onRequest(context) {
         logDebug(`处理代理请求时发生严重错误: ${error.message} \n ${error.stack}`);
         return createResponse(`代理处理错误: ${error.message}`, 500);
     }
+}
+
+// 添加一个专门的OPTIONS处理函数
+export async function onRequestOptions(context) {
+    const { request } = context;
+    return new Response(null, {
+        status: 204,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
+            'Access-Control-Allow-Headers': '*',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Max-Age': '86400',
+        }
+    });
 }
