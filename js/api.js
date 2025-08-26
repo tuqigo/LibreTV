@@ -1,3 +1,7 @@
+// --------------------------------以下代码全部为了处理/api/search 以及 /api/detail的首页搜索相关的请求------------------------------------------------
+// 匹配常见视频直链 
+const VIDEO_URL_RE = /https?:\/\/[^\s'"$#<>]+?\.(m3u8|mp4|flv|avi|mkv|mov|wmv)(\?[^'"\s#<>]*)?/ig;
+
 function isBaseDomain(api) {
     try {
         const url = new URL(api);
@@ -33,9 +37,6 @@ function getDetailApi(source, id, customApi = null) {
     const baseApi = customApi || API_SITES[source].api;
     return buildApiUrl(baseApi, API_CONFIG.detail.path, encodeURIComponent(id));
 }
-
-// 匹配常见视频直链
-const VIDEO_URL_RE = /https?:\/\/[^\s'"$#<>]+?\.(m3u8|mp4|flv|avi|mkv|mov|wmv)(\?[^'"\s#<>]*)?/ig;
 
 // 从单个源块中提取视频直链
 function extractVideoEpisodesFromBlock(block) {
@@ -102,7 +103,6 @@ function pickPrimaryVideoEpisodes(playUrl) {
 }
 
 
-
 // 改进的API请求处理函数
 async function handleApiRequest(url) {
     const customApi = url.searchParams.get('customApi') || '';
@@ -128,7 +128,7 @@ async function handleApiRequest(url) {
             const apiUrl = getSearchApi(source, searchQuery, customApi)
             // 添加超时处理
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
 
             try {
                 const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl), {
@@ -419,213 +419,7 @@ async function handleSpecialSourceDetail(id, sourceCode) {
     }
 }
 
-// 处理聚合搜索
-async function handleAggregatedSearch(searchQuery) {
-    // 获取可用的API源列表（排除aggregated和custom）
-    const availableSources = Object.keys(API_SITES).filter(key =>
-        key !== 'aggregated' && key !== 'custom'
-    );
-
-    if (availableSources.length === 0) {
-        throw new Error('没有可用的API源');
-    }
-
-    // 创建所有API源的搜索请求
-    const searchPromises = availableSources.map(async (source) => {
-        try {
-            const apiUrl = `${API_SITES[source].api}${API_CONFIG.search.path}${encodeURIComponent(searchQuery)}`;
-
-            // 使用Promise.race添加超时处理
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`${source}源搜索超时`)), 8000)
-            );
-
-            const fetchPromise = fetch(PROXY_URL + encodeURIComponent(apiUrl), {
-                headers: API_CONFIG.search.headers
-            });
-
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-            if (!response.ok) {
-                throw new Error(`${source}源请求失败: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!data || !Array.isArray(data.list)) {
-                throw new Error(`${source}源返回的数据格式无效`);
-            }
-
-            // 为搜索结果添加源信息
-            const results = data.list.map(item => ({
-                ...item,
-                source_name: API_SITES[source].name,
-                source_code: source
-            }));
-
-            return results;
-        } catch (error) {
-            console.warn(`${source}源搜索失败:`, error);
-            return []; // 返回空数组表示该源搜索失败
-        }
-    });
-
-    try {
-        // 并行执行所有搜索请求
-        const resultsArray = await Promise.all(searchPromises);
-
-        // 合并所有结果
-        let allResults = [];
-        resultsArray.forEach(results => {
-            if (Array.isArray(results) && results.length > 0) {
-                allResults = allResults.concat(results);
-            }
-        });
-
-        // 如果没有搜索结果，返回空结果
-        if (allResults.length === 0) {
-            return JSON.stringify({
-                code: 200,
-                list: [],
-                msg: '所有源均无搜索结果'
-            });
-        }
-
-        // 去重（根据vod_id和source_code组合）
-        const uniqueResults = [];
-        const seen = new Set();
-
-        allResults.forEach(item => {
-            const key = `${item.source_code}_${item.vod_id}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                uniqueResults.push(item);
-            }
-        });
-
-        // 按照视频名称和来源排序
-        uniqueResults.sort((a, b) => {
-            // 首先按照视频名称排序
-            const nameCompare = (a.vod_name || '').localeCompare(b.vod_name || '');
-            if (nameCompare !== 0) return nameCompare;
-
-            // 如果名称相同，则按照来源排序
-            return (a.source_name || '').localeCompare(b.source_name || '');
-        });
-
-        return JSON.stringify({
-            code: 200,
-            list: uniqueResults,
-        });
-    } catch (error) {
-        console.error('聚合搜索处理错误:', error);
-        return JSON.stringify({
-            code: 400,
-            msg: '聚合搜索处理失败: ' + error.message,
-            list: []
-        });
-    }
-}
-
-// 处理多个自定义API源的聚合搜索
-async function handleMultipleCustomSearch(searchQuery, customApiUrls) {
-    // 解析自定义API列表
-    const apiUrls = customApiUrls.split(CUSTOM_API_CONFIG.separator)
-        .map(url => url.trim())
-        .filter(url => url.length > 0 && /^https?:\/\//.test(url))
-        .slice(0, CUSTOM_API_CONFIG.maxSources);
-
-    if (apiUrls.length === 0) {
-        throw new Error('没有提供有效的自定义API地址');
-    }
-
-    // 为每个API创建搜索请求
-    const searchPromises = apiUrls.map(async (apiUrl, index) => {
-        try {
-            const fullUrl = `${apiUrl}${API_CONFIG.search.path}${encodeURIComponent(searchQuery)}`;
-
-            // 使用Promise.race添加超时处理
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`自定义API ${index + 1} 搜索超时`)), 8000)
-            );
-
-            const fetchPromise = fetch(PROXY_URL + encodeURIComponent(fullUrl), {
-                headers: API_CONFIG.search.headers
-            });
-
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-            if (!response.ok) {
-                throw new Error(`自定义API ${index + 1} 请求失败: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!data || !Array.isArray(data.list)) {
-                throw new Error(`自定义API ${index + 1} 返回的数据格式无效`);
-            }
-
-            // 为搜索结果添加源信息
-            const results = data.list.map(item => ({
-                ...item,
-                source_name: `${CUSTOM_API_CONFIG.namePrefix}${index + 1}`,
-                source_code: 'custom',
-                api_url: apiUrl // 保存API URL以便详情获取
-            }));
-
-            return results;
-        } catch (error) {
-            console.warn(`自定义API ${index + 1} 搜索失败:`, error);
-            return []; // 返回空数组表示该源搜索失败
-        }
-    });
-
-    try {
-        // 并行执行所有搜索请求
-        const resultsArray = await Promise.all(searchPromises);
-
-        // 合并所有结果
-        let allResults = [];
-        resultsArray.forEach(results => {
-            if (Array.isArray(results) && results.length > 0) {
-                allResults = allResults.concat(results);
-            }
-        });
-
-        // 如果没有搜索结果，返回空结果
-        if (allResults.length === 0) {
-            return JSON.stringify({
-                code: 200,
-                list: [],
-                msg: '所有自定义API源均无搜索结果'
-            });
-        }
-
-        // 去重（根据vod_id和api_url组合）
-        const uniqueResults = [];
-        const seen = new Set();
-
-        allResults.forEach(item => {
-            const key = `${item.api_url || ''}_${item.vod_id}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                uniqueResults.push(item);
-            }
-        });
-
-        return JSON.stringify({
-            code: 200,
-            list: uniqueResults,
-        });
-    } catch (error) {
-        console.error('自定义API聚合搜索处理错误:', error);
-        return JSON.stringify({
-            code: 400,
-            msg: '自定义API聚合搜索处理失败: ' + error.message,
-            list: []
-        });
-    }
-}
+// --------------------------------以上代码全部为了处理/api/search 以及 /api/detail的首页搜索相关的请求------------------------------------------------
 
 // 拦截API请求
 (function () {
@@ -665,26 +459,3 @@ async function handleMultipleCustomSearch(searchQuery, customApiUrls) {
         return originalFetch.apply(this, arguments);
     };
 })();
-
-async function testSiteAvailability(apiUrl) {
-    try {
-        // 使用更简单的测试查询
-        const response = await fetch('/api/search?wd=test&customApi=' + encodeURIComponent(apiUrl), {
-            // 添加超时
-            signal: AbortSignal.timeout(5000)
-        });
-
-        // 检查响应状态
-        if (!response.ok) {
-            return false;
-        }
-
-        const data = await response.json();
-
-        // 检查API响应的有效性
-        return data && data.code !== 400 && Array.isArray(data.list);
-    } catch (error) {
-        console.error('站点可用性测试失败:', error);
-        return false;
-    }
-}
