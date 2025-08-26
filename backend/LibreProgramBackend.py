@@ -45,6 +45,10 @@ app.config['JWT_ALGORITHM'] = 'HS256'
 app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] = 5  # Access Token 5分钟过期
 app.config['REFRESH_TOKEN_EXPIRATION_DAYS'] = 7  # Refresh Token 7天过期
 
+# 新增：Cookie配置
+app.config['COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', 'false').lower() == 'true'  # 生产环境设为True
+app.config['COOKIE_DOMAIN'] = os.environ.get('COOKIE_DOMAIN', None)  # 生产环境设置域名
+
 DB_PATH = 'data/libretv.db'
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
@@ -244,10 +248,26 @@ def set_refresh_token_cookie(response, token):
         'refreshToken',
         token,
         httponly=True,
-        secure=False,  # 开发环境设为False，生产环境应设为True
+        secure=app.config['COOKIE_SECURE'],
+        domain=app.config['COOKIE_DOMAIN'],
         path='/proxy/api/auth/refresh',  # 确保路径与前端请求路径完全匹配
         samesite='Strict',  # 保持Strict以确保安全性
         max_age=app.config['REFRESH_TOKEN_EXPIRATION_DAYS'] * 24 * 3600
+    )
+    return response
+
+
+def set_access_token_cookie(response, token):
+    """设置访问令牌Cookie"""
+    response.set_cookie(
+        'accessToken',
+        token,
+        httponly=True,
+        secure=app.config['COOKIE_SECURE'],
+        domain=app.config['COOKIE_DOMAIN'],
+        path='/proxy/api',  # 路径设置为/proxy/api
+        samesite='Strict',
+        max_age=app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] * 60  # 5分钟 = 300秒
     )
     return response
 
@@ -288,13 +308,18 @@ def store_refresh_token(user_id, token):
 def jwt_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        token = request.headers.get('Authorization')
+        # 优先从Cookie中获取access token
+        token = request.cookies.get('accessToken')
+        
+        # 如果Cookie中没有，则从Authorization header中获取（向后兼容）
+        if not token:
+            token = request.headers.get('Authorization')
+            if token and token.startswith('Bearer '):
+                token = token[7:]
+        
         if not token:
             app.logger.warning("请求缺少认证令牌")
             return jsonify({'error': '缺少认证令牌'}), 401
-
-        if token.startswith('Bearer '):
-            token = token[7:]
 
         payload = verify_access_token(token)
         if not payload:
@@ -475,15 +500,17 @@ def register():
             # 存储刷新令牌
             store_refresh_token(user_id, refresh_token)
 
-            # 创建响应并设置刷新令牌Cookie
+            # 创建响应并设置两个Cookie
+            # 从JWT token中提取实际的过期时间
+            token_payload = jwt.decode(access_token, app.config['SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
             response_data = {
                 'message': '注册成功',
-                'token': access_token,
-                'user': {'id': user_id, 'username': username, 'email': email if email else None}
+                'expires_at': int(token_payload['exp'] * 1000)  # JWT的exp是秒级，转换为毫秒
             }
 
             response = make_response(jsonify(response_data))
             response.headers['Content-Type'] = 'application/json; charset=utf-8'
+            response = set_access_token_cookie(response, access_token)
             response = set_refresh_token_cookie(response, refresh_token)
 
             app.logger.info(f"用户注册成功: {username} (ID: {user_id})")
@@ -570,15 +597,17 @@ def login():
             # 存储刷新令牌
             store_refresh_token(user_id, refresh_token)
 
-            # 创建响应并设置刷新令牌Cookie
+            # 创建响应并设置两个Cookie
+            # 从JWT token中提取实际的过期时间
+            token_payload = jwt.decode(access_token, app.config['SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
             response_data = {
                 'message': '登录成功',
-                'token': access_token,
-                'user': {'id': user_id, 'username': username}
+                'expires_at': int(token_payload['exp'] * 1000)  # JWT的exp是秒级，转换为毫秒
             }
 
             response = make_response(jsonify(response_data))
             response.headers['Content-Type'] = 'application/json; charset=utf-8'
+            response = set_access_token_cookie(response, access_token)
             response = set_refresh_token_cookie(response, refresh_token)
 
             app.logger.info(f"用户登录成功: {username} (ID: {user_id})")
@@ -622,21 +651,16 @@ def refresh_token():
         # 生成新的访问令牌
         new_access_token = generate_access_token(user_id, username)
 
-        # 构建用户信息
-        user_info = {
-            'id': user_id,
-            'username': user_data[0],
-            'email': user_data[1]
-        }
-
+        # 从JWT token中提取实际的过期时间
+        token_payload = jwt.decode(new_access_token, app.config['SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
         response_data = {
             'message': '令牌刷新成功',
-            'token': new_access_token,
-            'user': user_info
+            'expires_at': int(token_payload['exp'] * 1000)  # JWT的exp是秒级，转换为毫秒
         }
 
         response = make_response(jsonify(response_data))
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        response = set_access_token_cookie(response, new_access_token)
 
         app.logger.info(f"令牌刷新成功: 用户 {username} (ID: {user_id})")
         return response, 200
@@ -656,15 +680,33 @@ def logout():
         # 撤销用户的所有刷新令牌
         revoke_refresh_tokens(user_id)
 
-        # 创建响应并清除刷新令牌Cookie
+        # 创建响应并清除两个Cookie
         response_data = {'message': '登出成功'}
         response = make_response(jsonify(response_data))
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        
+        # 清除access token cookie - 使用相同的属性设置
+        response.set_cookie(
+            'accessToken',
+            '',
+            httponly=True,
+            secure=app.config['COOKIE_SECURE'],
+            domain=app.config['COOKIE_DOMAIN'],
+            path='/proxy/api',
+            samesite='Strict',
+            expires=0
+        )
+        
+        # 清除refresh token cookie - 使用相同的属性设置
         response.set_cookie(
             'refreshToken',
             '',
-            expires=0,
-            path='/proxy/api/auth/refresh'
+            httponly=True,
+            secure=app.config['COOKIE_SECURE'],
+            domain=app.config['COOKIE_DOMAIN'],
+            path='/proxy/api/auth/refresh',
+            samesite='Strict',
+            expires=0
         )
 
         app.logger.info(f"用户登出成功: {username} (ID: {user_id})")
@@ -672,6 +714,38 @@ def logout():
     except Exception as e:
         app.logger.error(f"登出过程中出错: {str(e)}")
         return jsonify({'error': f'登出失败: {str(e)}'}), 500
+
+# 用户详情查询接口
+@app.route('/api/auth/user-info', methods=['GET'])
+@jwt_required
+def get_user_info():
+    try:
+        user_id = request.user['user_id']
+        
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.execute(
+                'SELECT username, email, created_at, last_login FROM users WHERE id = ?',
+                (user_id,)
+            )
+            user_data = cursor.fetchone()
+            
+            if not user_data:
+                return jsonify({'error': '用户不存在'}), 404
+            
+            username, email, created_at, last_login = user_data
+            
+            return jsonify({
+                'id': user_id,
+                'username': username,
+                'email': email,
+                'created_at': created_at,
+                'last_login': last_login
+            }), 200
+            
+    except Exception as e:
+        app.logger.error(f"获取用户信息时出错: {str(e)}")
+        return jsonify({'error': f'获取用户信息失败: {str(e)}'}), 500
+
 
 # 健康检查端点
 @app.route('/api/health', methods=['GET'])
