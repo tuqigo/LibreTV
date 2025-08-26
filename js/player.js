@@ -208,6 +208,11 @@ function initializePageContent() {
             clearInterval(waitForVideo);
         }
     }, 200);
+
+    // 添加超时清理
+    setTimeout(() => {
+        clearInterval(waitForVideo);
+    }, 10000); // 10秒后无论如何都清理
 }
 
 // 处理键盘快捷键
@@ -333,7 +338,7 @@ function initPlayer(videoUrl, sourceCode) {
             pic: 'image/nomedia.png', // 设置视频封面图
             customType: {
                 hls: function (video, player) {
-                    
+
                     // 清理之前的HLS实例
                     if (currentHls && currentHls.destroy) {
                         try {
@@ -409,7 +414,7 @@ function initPlayer(videoUrl, sourceCode) {
 
                     hls.on(Hls.Events.ERROR, function (event, data) {
                         console.log('HLS事件:', event, '数据:', data);
-                       
+
                         // 增加错误计数
                         errorCount++;
 
@@ -454,7 +459,7 @@ function initPlayer(videoUrl, sourceCode) {
                             }
                         }
 
-                         // 👇 错误恢复逻辑，避免播放卡死
+                        // 👇 错误恢复逻辑，避免播放卡死
                         if (data.fatal) {
                             switch (data.type) {
                                 case Hls.ErrorTypes.NETWORK_ERROR:
@@ -1133,8 +1138,14 @@ function startProgressSaveInterval() {
     }, 30000);
 }
 
+let lastSaveTime = 0;
 // 保存当前播放进度
 function saveCurrentProgress() {
+    const now = Date.now();
+    if (now - lastSaveTime < 3000) { // 至少3秒保存一次
+        return;
+    }
+    lastSaveTime = now;
     if (!dp || !dp.video) return;
     const currentTime = dp.video.currentTime;
     const duration = dp.video.duration;
@@ -1332,6 +1343,10 @@ function bytesToHuman(n) {
 }
 
 async function refreshCacheStatus() {
+    // 如果面板隐藏，不需要刷新
+    if (document.getElementById('cacheStatusPanel').classList.contains('hidden')) {
+        return;
+    }
     try {
         const cache = window.__hlsSegmentCache;
         const stats = cache && cache.getStats ? await cache.getStats() : null;

@@ -419,7 +419,10 @@ def register():
         if len(password) < 6:
             app.logger.warning("密码长度不符合要求")
             return jsonify({'error': '密码长度至少6个字符'}), 400
-
+        # todo 由于客户端目前没设置email输入框 先使用邮箱格式的用户代理email
+        if not email:
+            email = username
+            
         client_ip = get_client_ip()
         if not check_rate_limit(client_ip, 'register'):
             return jsonify({'error': '注册请求过于频繁，请稍后再试'}), 429
