@@ -265,6 +265,8 @@ const pageInitializer = {
     },
 
     initAuthPage() {
+        // 清理之前可能存在的状态
+        cleanupFormState();
         authChecker.checkExisting();
         this.bindEvents();
         tokenManager.startRefreshTimer();
@@ -415,20 +417,43 @@ const formHandler = {
                 if (data.available) {
                     input.style.borderColor = '#22c55e';
                     input.title = '用户名可用';
+                    input.classList.add('success');
+                    input.classList.remove('error');
+                    // 用户名可用时不显示错误消息
+                    this.hideMessages();
                 } else {
                     input.style.borderColor = '#ef4444';
                     input.title = '用户名已被使用';
-                    this.showError('用户名已被使用');
+                    input.classList.add('error');
+                    input.classList.remove('success');
+                    // 只在注册表单显示时才显示错误消息
+                    const registerForm = document.getElementById('registerForm');
+                    if (registerForm && registerForm.style.display !== 'none') {
+                        this.showError('用户名已被使用');
+                    }
                 }
             } else {
                 input.style.borderColor = '#ef4444';
                 input.title = '检查失败';
-                this.showError(data.error || '检查失败');
+                input.classList.add('error');
+                input.classList.remove('success');
+                // 只在注册表单显示时才显示错误消息
+                const registerForm = document.getElementById('registerForm');
+                if (registerForm && registerForm.style.display !== 'none') {
+                    this.showError(data.error || '检查失败');
+                }
             }
         } catch (error) {
             const input = document.getElementById('registerUsername');
             input.style.borderColor = '#ef4444';
             input.title = '网络错误';
+            input.classList.add('error');
+            input.classList.remove('success');
+            // 只在注册表单显示时才显示错误消息
+            const registerForm = document.getElementById('registerForm');
+            if (registerForm && registerForm.style.display !== 'none') {
+                this.showError('网络错误，请检查网络连接');
+            }
         }
     },
 
@@ -519,6 +544,11 @@ const publicAPI = {
         localStorage.clear();
         authStorage.clear();
         
+        // 清理认证页面可能存在的状态
+        if (utils.getPageType() === PAGE_TYPES.AUTH) {
+            cleanupFormState();
+        }
+        
         if (window.showToast) {
             window.showToast('已成功登出', 'success');
         }
@@ -598,23 +628,42 @@ function switchAuthMode() {
         switchText.textContent = isLoginMode ? '已有账号？' : '还没有账号？';
         switchBtn.textContent = isLoginMode ? '立即登录' : '立即注册';
         
-        formHandler.hideMessages();
-        
-        // 重置注册表单的输入框状态
-        const registerUsername = document.getElementById('registerUsername');
-        if (registerUsername) {
-            registerUsername.style.borderColor = '';
-            registerUsername.title = '';
-        }
-        
-        // 清空所有输入框
-        const inputs = document.querySelectorAll('.form-input');
-        inputs.forEach(input => {
-            input.value = '';
-            input.style.borderColor = '';
-            input.title = '';
-        });
+        // 完全清理所有状态
+        cleanupFormState();
     }
+}
+
+// 清理表单状态的函数
+function cleanupFormState() {
+    // 隐藏所有消息
+    formHandler.hideMessages();
+    
+    // 清空所有输入框
+    const inputs = document.querySelectorAll('.form-input');
+    inputs.forEach(input => {
+        input.value = '';
+        input.style.borderColor = '';
+        input.title = '';
+        input.classList.remove('error', 'success');
+    });
+    
+    // 重置按钮状态
+    const buttons = document.querySelectorAll('.auth-btn');
+    buttons.forEach(button => {
+        button.disabled = false;
+        const btnText = button.querySelector('.btn-text');
+        const loadingSpinner = button.querySelector('.loading');
+        if (btnText) btnText.style.display = 'inline';
+        if (loadingSpinner) loadingSpinner.style.display = 'none';
+    });
+    
+    // 重置表单验证状态
+    const forms = document.querySelectorAll('.auth-form');
+    forms.forEach(form => {
+        if (form.classList.contains('was-validated')) {
+            form.classList.remove('was-validated');
+        }
+    });
 }
 
 // 事件绑定

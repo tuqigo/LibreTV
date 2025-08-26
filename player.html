@@ -33,15 +33,14 @@
         <h2 id="videoTitle"
             class="text-xl font-semibold flex-1 text-center overflow-x-auto whitespace-nowrap truncate custom-title-scroll">
         </h2>
-        <a href="/"
-            class="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center min-w-0 home-btn">
+        <button onclick="goBack()"
+            class="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center min-w-0 back-btn">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 21V9.5l-7-5-7 5V21a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2z" />
-                <path d="M9 22V12h6v10" />
+                <path d="M15 19l-7-7 7-7"></path>
             </svg>
-            <span class="home-btn-text">返回首页</span>
-        </a>
+            <!-- <span class="back-btn-text">返回上页</span> -->
+        </button>
     </header>
 
     <main class="container mx-auto px-4 py-4">
@@ -225,6 +224,19 @@
     <script src="js/ui.js"></script>
     <script src="js/tool.js"></script>
     <script src="js/player.js"></script>
+    
+    <script>
+        // 回退功能
+        function goBack() {
+            if (document.referrer && document.referrer !== window.location.href) {
+                // 如果有来源页面且不是当前页面，则回退
+                window.history.back();
+            } else {
+                // 如果没有来源页面或来源是当前页面，则跳转到首页
+                window.location.href = '/';
+            }
+        }
+    </script>
 </body>
 
 </html>

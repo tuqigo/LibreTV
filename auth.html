@@ -85,6 +85,16 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
+        .form-input.success {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .form-input.error {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
         .form-input::placeholder {
             color: #9ca3af;
         }
@@ -203,12 +213,12 @@
             <form id="loginForm" class="auth-form">
                 <div class="form-group">
                     <label for="loginUsername" class="form-label">用户名</label>
-                    <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名" required>
+                    <input type="text" id="loginUsername" class="form-input" placeholder="请输入用户名" autocomplete="username" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="loginPassword" class="form-label">密码</label>
-                    <input type="password" id="loginPassword" class="form-input" placeholder="请输入密码" required>
+                    <input type="password" id="loginPassword" class="form-input" placeholder="请输入密码" autocomplete="current-password" required>
                 </div>
                 
                 <button type="submit" class="auth-btn" id="loginBtn">
@@ -221,7 +231,7 @@
             <form id="registerForm" class="auth-form" style="display: none;">
                 <div class="form-group">
                     <label for="registerUsername" class="form-label">用户名</label>
-                    <input type="text" id="registerUsername" class="form-input" placeholder="请输入用户名,邮箱格式" required>
+                    <input type="text" id="registerUsername" class="form-input" placeholder="请输入用户名,邮箱格式" autocomplete="username" required>
                 </div>
                 
                 <!-- <div class="form-group">
@@ -231,12 +241,12 @@
                 
                 <div class="form-group">
                     <label for="registerPassword" class="form-label">密码</label>
-                    <input type="password" id="registerPassword" class="form-input" placeholder="请输入密码（至少6个字符）" required>
+                    <input type="password" id="registerPassword" class="form-input" placeholder="请输入密码（至少6个字符）" autocomplete="new-password" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="confirmPassword" class="form-label">确认密码</label>
-                    <input type="password" id="confirmPassword" class="form-input" placeholder="请再次输入密码" required>
+                    <input type="password" id="confirmPassword" class="form-input" placeholder="请再次输入密码" autocomplete="new-password" required>
                 </div>
                 
                 <button type="submit" class="auth-btn" id="registerBtn">
