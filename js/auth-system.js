@@ -121,7 +121,6 @@ const authState = {
         tokenExpiresAt = 0;
         // 清除持久化存储
         localStorage.clear();
-        sessionStorage.clear();
     },
 
     // 获取认证状态
