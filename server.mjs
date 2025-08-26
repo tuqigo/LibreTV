@@ -28,9 +28,9 @@ app.use(express.urlencoded({ extended: true })); // 支持 form
 
 // 调试日志函数
 function logDebug(message) {
-  if (DEBUG_ENABLED) {
-    console.log(`[Proxy Server] ${message}`);
-  }
+  // if (DEBUG_ENABLED) {
+  console.log(`[Proxy Server] ${message}`);
+  // }
 }
 
 app.get(['/', '/index.html', '/player.html'], async (req, res) => {
@@ -79,7 +79,7 @@ app.all('/proxy/:encodedUrl', async (req, res) => {
       return res.status(400).send('Invalid URL');
     }
 
-    logDebug(`收到通用代理请求: ${targetUrl}`);
+    // logDebug(`收到通用代理请求: ${targetUrl}`);
 
     // 构造请求
     const response = await axios({
@@ -118,7 +118,6 @@ app.use('/proxy/api', async (req, res) => {
     // 保留 query string
     const apiPath = req.originalUrl.replace(/^\/proxy\/api/, '');
     const targetUrl = `${backendUrl}/api${apiPath}`;
-
     logDebug(`API代理请求: ${req.method} ${req.originalUrl} -> ${targetUrl}`);
     logDebug(`查询参数: ${req.url.split('?')[1] || '无'}`);
 
@@ -159,7 +158,7 @@ app.use('/proxy/api', async (req, res) => {
     // 仅 POST/PUT/PATCH 方法才发送 body
     if (['POST', 'PUT', 'PATCH'].includes(req.method.toUpperCase())) {
       axiosConfig.data = req.body;
-      
+
       // 确保Content-Type正确设置
       if (!forwardedHeaders['Content-Type']) {
         forwardedHeaders['Content-Type'] = 'application/json';
@@ -190,15 +189,16 @@ app.use('/proxy/api', async (req, res) => {
         let adjustedCookie = cookie;
 
         // 替换路径 - 处理所有可能的API路径
-        if (adjustedCookie.includes('Path=/api/')) {
-          adjustedCookie = adjustedCookie.replace(
-            /Path=\/api\//g,
-            'Path=/proxy/api/'
-          );
-        } else if (!adjustedCookie.includes('Path=')) {
-          // 如果后端没有设置Path，则设置为代理路径
-          adjustedCookie += '; Path=/proxy/api';
-        }
+        // if (adjustedCookie.includes('Path=/api/')) {
+        //   adjustedCookie = adjustedCookie.replace(
+        //     /Path=\/api\//g,
+        //     'Path=/proxy/api/'
+        //   );
+        // } else if (!adjustedCookie.includes('Path=')) {
+        //   // 如果后端没有设置Path，则设置为代理路径
+        //   adjustedCookie += '; Path=/proxy/api';
+        // }
+        logDebug(`adjustedCookie: ${adjustedCookie}`);
 
         // 处理Domain - 移除后端特定的Domain设置
         if (adjustedCookie.includes('Domain=')) {

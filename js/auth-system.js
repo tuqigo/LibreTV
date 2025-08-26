@@ -24,26 +24,16 @@ const utils = {
     // 检测页面类型
     getPageType() {
         const pathname = window.location.pathname;
-        const hostname = window.location.hostname;
-        const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('localhost');
-        
-        let pageType;
-        if (pathname.includes('auth') || pathname.endsWith('/auth')) {
-            pageType = PAGE_TYPES.AUTH;
-        } else if (pathname.includes('player') || pathname.endsWith('/player')) {
-            pageType = PAGE_TYPES.PLAYER;
-        } else {
-            pageType = PAGE_TYPES.MAIN;
-        }
-        
-        return pageType;
+        if (pathname.includes('auth') || pathname.endsWith('/auth')) return PAGE_TYPES.AUTH;
+        if (pathname.includes('player') || pathname.endsWith('/player')) return PAGE_TYPES.PLAYER;
+        return PAGE_TYPES.MAIN;
     },
 
     // 检测环境
     isProduction() {
-        return window.location.hostname !== 'localhost' && 
-               window.location.hostname !== '127.0.0.1' &&
-               !window.location.hostname.includes('localhost');
+        return window.location.hostname !== 'localhost' &&
+            window.location.hostname !== '127.0.0.1' &&
+            !window.location.hostname.includes('localhost');
     },
 
     // 获取重定向URL
@@ -76,12 +66,12 @@ const authState = {
     init() {
         const storedExpiresAt = localStorage.getItem('tokenExpiresAt');
         const storedAuth = localStorage.getItem('isAuthenticated');
-        
+
         if (storedExpiresAt && storedAuth === 'true') {
             const expiresAt = parseInt(storedExpiresAt);
             // 使用UTC时间进行比较，避免时区问题
             const nowUTC = Math.floor(Date.now() / 1000) * 1000;
-            
+
             // 检查是否过期
             if (nowUTC < expiresAt) {
                 tokenExpiresAt = expiresAt;
@@ -106,11 +96,11 @@ const authState = {
     setAuth(expiresAt) {
         tokenExpiresAt = expiresAt;
         isAuthenticated = true;
-        
+
         // 持久化存储过期时间
         localStorage.setItem('tokenExpiresAt', expiresAt.toString());
         localStorage.setItem('isAuthenticated', 'true');
-        
+
         return true;
     },
 
@@ -152,7 +142,7 @@ const tokenManager = {
                     return authState.setAuth(data.expires_at);
                 }
             }
-            
+
             // 刷新失败，清除认证状态
             authState.clear();
             return false;
@@ -166,7 +156,7 @@ const tokenManager = {
 
     startRefreshTimer() {
         if (tokenRefreshTimer) clearInterval(tokenRefreshTimer);
-        
+
         tokenRefreshTimer = setInterval(async () => {
             if (authState.isTokenExpired()) {
                 const success = await this.refresh();
@@ -208,7 +198,7 @@ const userManager = {
         if (!currentUser) {
             currentUser = await this.fetchUserInfo();
         }
-        
+
         const settingTitle = document.getElementById('settingTitle');
         if (settingTitle && currentUser?.username) {
             settingTitle.innerText = `${currentUser.username}的设置`;
@@ -223,12 +213,12 @@ const authChecker = {
         if (!isAuthenticated && tokenExpiresAt === 0) {
             authState.init();
         }
-        
+
         // 首先检查内存中的状态
         if (isAuthenticated && !authState.isTokenExpired()) {
             return { isValid: true, user: currentUser };
         }
-        
+
         // 如果内存中没有有效状态，尝试刷新token
         const refreshSuccess = await tokenManager.refresh();
         if (refreshSuccess) {
@@ -253,33 +243,13 @@ const authChecker = {
 // 重定向管理
 const redirectManager = {
     toMain() {
-        if (utils.getPageType() === PAGE_TYPES.MAIN) {
-            return;
-        }
-        
-        // 根据当前环境选择合适的跳转方式
-        let targetUrl;
-        if (utils.isProduction()) {
-            targetUrl = '/';
-        } else {
-            targetUrl = 'index.html';
-        }
-        
-        utils.redirect(targetUrl);
+        if (utils.getPageType() === PAGE_TYPES.MAIN) return;
+        utils.redirect(utils.getRedirectUrl('main'));
     },
 
     toAuth() {
         if (utils.getPageType() === PAGE_TYPES.AUTH) return;
-        
-        // 根据当前环境选择合适的跳转方式
-        let targetUrl;
-        if (utils.isProduction()) {
-            targetUrl = '/auth';
-        } else {
-            targetUrl = 'auth.html';
-        }
-        
-        utils.redirect(targetUrl);
+        utils.redirect(utils.getRedirectUrl('auth'));
     }
 };
 
@@ -287,21 +257,21 @@ const redirectManager = {
 const pageInitializer = {
     async init() {
         if (window.authSystemInitialized) return;
-        
+
         const pageType = utils.getPageType();
         document.body.setAttribute('data-page-type', pageType);
-        
+
         if (sessionStorage.getItem('auth_emergency_stop')) {
             sessionStorage.removeItem('auth_emergency_stop');
             return;
         }
-        
+
         if (pageType === PAGE_TYPES.AUTH) {
             this.initAuthPage();
         } else {
             await this.initMainPage();
         }
-        
+
         window.authSystemInitialized = true;
     },
 
@@ -315,7 +285,7 @@ const pageInitializer = {
 
     async initMainPage() {
         const authStatus = await authChecker.check();
-        
+
         if (authStatus.isValid) {
             tokenManager.startRefreshTimer();
             await userManager.updateUserDisplay();
@@ -339,17 +309,17 @@ const pageInitializer = {
 const formHandler = {
     async handleLogin(event) {
         event.preventDefault();
-        
+
         const username = document.getElementById('loginUsername')?.value.trim();
         const password = document.getElementById('loginPassword')?.value;
-        
+
         if (!username || !password) {
             this.showError('请填写完整的登录信息');
             return;
         }
 
         this.setLoading('loginBtn', true);
-        
+
         try {
             const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/login`, {
                 method: 'POST',
@@ -359,10 +329,10 @@ const formHandler = {
             });
 
             const data = await response.json();
-            
+
             if (response.ok && data.expires_at) {
                 const authResult = authState.setAuth(data.expires_at);
-                
+
                 if (authResult) {
                     this.showSuccess('登录成功，正在跳转...');
                     setTimeout(() => {
@@ -384,7 +354,7 @@ const formHandler = {
 
     async handleRegister(event) {
         event.preventDefault();
-        
+
         const username = document.getElementById('registerUsername')?.value.trim();
         const email = document.getElementById('registerEmail')?.value.trim();
         const password = document.getElementById('registerPassword')?.value;
@@ -411,7 +381,7 @@ const formHandler = {
         }
 
         this.setLoading('registerBtn', true);
-        
+
         try {
             const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/register`, {
                 method: 'POST',
@@ -421,10 +391,10 @@ const formHandler = {
             });
 
             const data = await response.json();
-            
+
             if (response.ok && data.expires_at) {
                 const authResult = authState.setAuth(data.expires_at);
-                
+
                 if (authResult) {
                     this.showSuccess('注册成功，正在跳转...');
                     setTimeout(() => redirectManager.toMain(), 1000);
@@ -454,7 +424,7 @@ const formHandler = {
 
             const data = await response.json();
             const input = document.getElementById('registerUsername');
-            
+
             if (response.ok) {
                 if (data.available) {
                     input.style.borderColor = '#22c55e';
@@ -544,7 +514,7 @@ const publicAPI = {
         if (isAuthenticated && !authState.isTokenExpired()) {
             return true;
         }
-        
+
         // 如果内存中没有有效状态，尝试刷新token
         const refreshSuccess = await tokenManager.refresh();
         if (refreshSuccess) {
@@ -579,7 +549,7 @@ const publicAPI = {
                 method: 'POST',
                 credentials: 'include'
             });
-            
+
             if (response.ok) {
                 console.log('后端logout成功');
             } else {
@@ -588,19 +558,19 @@ const publicAPI = {
         } catch (error) {
             console.error('调用logout接口失败:', error);
         }
-        
+
         // 清除前端状态
         authState.clear();
-        
+
         // 清理认证页面可能存在的状态
         if (utils.getPageType() === PAGE_TYPES.AUTH) {
             cleanupFormState();
         }
-        
+
         if (window.showToast) {
             window.showToast('已成功登出', 'success');
         }
-        
+
         setTimeout(() => redirectManager.toAuth(), 500);
     },
 
@@ -654,7 +624,7 @@ const publicAPI = {
             tokenRefreshTimer = null;
         }
         window.authSystemInitialized = false;
-        
+
         if (utils.getPageType() === PAGE_TYPES.AUTH) {
             formHandler.showError('系统检测到异常，已自动停止。请刷新页面重试。');
         }
@@ -670,12 +640,12 @@ function switchAuthMode() {
 
     if (loginForm && registerForm && switchText && switchBtn) {
         const isLoginMode = loginForm.style.display !== 'none';
-        
+
         loginForm.style.display = isLoginMode ? 'none' : 'block';
         registerForm.style.display = isLoginMode ? 'block' : 'none';
         switchText.textContent = isLoginMode ? '已有账号？' : '还没有账号？';
         switchBtn.textContent = isLoginMode ? '立即登录' : '立即注册';
-        
+
         // 完全清理所有状态
         cleanupFormState();
     }
@@ -685,7 +655,7 @@ function switchAuthMode() {
 function cleanupFormState() {
     // 隐藏所有消息
     formHandler.hideMessages();
-    
+
     // 清空所有输入框
     const inputs = document.querySelectorAll('.form-input');
     inputs.forEach(input => {
@@ -694,7 +664,7 @@ function cleanupFormState() {
         input.title = '';
         input.classList.remove('error', 'success');
     });
-    
+
     // 重置按钮状态
     const buttons = document.querySelectorAll('.auth-btn');
     buttons.forEach(button => {
@@ -704,7 +674,7 @@ function cleanupFormState() {
         if (btnText) btnText.style.display = 'inline';
         if (loadingSpinner) loadingSpinner.style.display = 'none';
     });
-    
+
     // 重置表单验证状态
     const forms = document.querySelectorAll('.auth-form');
     forms.forEach(form => {
