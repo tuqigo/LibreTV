@@ -5,7 +5,7 @@
 
 const PRECACHE = 'libretv-precache-v2';
 const RUNTIME = 'libretv-runtime-v1';
-const MAX_BYTES = 200 * 1024 * 1024; // 200MB
+const MAX_BYTES = 50 * 1024 * 1024; // 200MB
 const API_TTL_MS = 5 * 60 * 1000; // API 缓存 5 分钟
 
 // 只放“确定存在的”资源，避免 404 造成安装失败。
@@ -214,6 +214,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(cacheFirst(req));
     return;
   }
+
+    // 代理请求不缓存
+    if (isApiRequest(req)) return;
 
   // api先注释了 不使用缓存
   // if (isApiRequest(req)) {

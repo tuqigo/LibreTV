@@ -399,8 +399,8 @@
         window.addEventListener('DOMContentLoaded', async function() {
             try {
                 // 检查JWT认证状态
-                if (window.AuthSystem && window.AuthSystem.getStoredUser()) {
-                    const user = window.AuthSystem.getStoredUser();
+                if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
+                    const user = window.AuthSystem.getCurrentUser();
                     document.getElementById('settingTitle').innerText = user.username + '的设置';
                     console.log("DOM加载完成后执行一次");
                     await syncConfig(false);

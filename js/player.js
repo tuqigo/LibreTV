@@ -34,24 +34,36 @@ document.addEventListener('authVerified', () => {
 });
 
 // 页面加载完成后检查认证状态
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     // 检查认证状态
-    if (window.AuthSystem && window.AuthSystem.isUserAuthenticated()) {
-        // 用户已认证，直接初始化页面
-        initializePageContent();
-    } else {
-        // 用户未认证，检查当前页面类型
-        const currentPath = window.location.pathname;
-        if (currentPath.includes('auth.html')) {
-            // 如果当前在认证页面，不需要跳转
-            console.log('当前在认证页面，等待用户认证');
-        } else {
-            // 用户未认证且不在认证页面，显示认证弹框
-            if (window.AuthSystem) {
-                console.log('用户未认证，跳转到认证页面');
-                window.AuthSystem.showAuthModal();
+    if (window.AuthSystem) {
+        try {
+            const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
+            if (isAuthenticated) {
+                // 用户已认证，直接初始化页面
+                console.log('用户已认证，初始化页面');
+                initializePageContent();
+            } else {
+                // 用户未认证，检查当前页面类型
+                const currentPath = window.location.pathname;
+                if (currentPath.includes('auth.html')) {
+                    // 如果当前在认证页面，不需要跳转
+                    console.log('当前在认证页面，等待用户认证');
+                } else {
+                    // 用户未认证且不在认证页面，显示认证弹框
+                    console.log('用户未认证，跳转到认证页面');
+                    window.AuthSystem.showAuthModal();
+                }
             }
+        } catch (error) {
+            console.error('认证检查失败:', error);
+            // 如果认证检查出错，跳转到认证页面
+            window.AuthSystem.showAuthModal();
         }
+    } else {
+        console.error('认证系统未加载');
+        // 如果认证系统未加载，显示错误
+        showError('认证系统未加载，请刷新页面重试');
     }
 });
 
@@ -74,7 +86,7 @@ function initializePageContent() {
     document.getElementById('autoplayToggle').checked = autoplayEnabled;
 
     // 获取广告过滤设置
-    adFilteringEnabled = localStorage.getItem(PLAYER_CONFIG.adFilteringStorage) !== 'false'; // 默认为true
+    adFilteringEnabled = localStorage.getItem('adFilteringEnabled') !== 'false'; // 默认为true
 
     // 监听自动连播开关变化
     document.getElementById('autoplayToggle').addEventListener('change', function (e) {

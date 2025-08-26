@@ -155,6 +155,7 @@ const tokenManager = {
                 }
             }
             
+            // 刷新失败，清除认证状态
             authStorage.clear();
             return false;
         } catch (error) {
@@ -170,9 +171,16 @@ const tokenManager = {
         tokenRefreshTimer = setInterval(async () => {
             const token = authStorage.getToken();
             if (token && this.isExpired(token)) {
+                console.log('Access token已过期，尝试刷新...');
                 const success = await this.refresh();
-                if (!success && utils.getPageType() !== PAGE_TYPES.AUTH) {
-                    utils.redirect(utils.getRedirectUrl('auth'));
+                if (!success) {
+                    console.log('刷新失败，需要重新登录');
+                    // 只有在刷新失败且不在认证页面时才跳转
+                    if (utils.getPageType() !== PAGE_TYPES.AUTH) {
+                        utils.redirect(utils.getRedirectUrl('auth'));
+                    }
+                } else {
+                    console.log('Token刷新成功');
                 }
             }
         }, AUTH_CONFIG.TOKEN_REFRESH_INTERVAL);
@@ -181,7 +189,7 @@ const tokenManager = {
 
 // 认证状态检查
 const authChecker = {
-    check() {
+    async check() {
         const token = authStorage.getToken();
         const user = authStorage.getUser();
         
@@ -191,18 +199,29 @@ const authChecker = {
             return { isValid: true, token, user };
         }
         
+        // 如果token过期，尝试刷新
+        if (token && tokenManager.isExpired(token)) {
+            console.log('Token已过期，尝试刷新...');
+            const refreshSuccess = await tokenManager.refresh();
+            if (refreshSuccess) {
+                console.log('Token刷新成功');
+                isAuthenticated = true;
+                currentUser = authStorage.getUser();
+                return { isValid: true, token: authStorage.getToken(), user: currentUser };
+            } else {
+                console.log('Token刷新失败，清除认证状态');
+                authStorage.clear();
+            }
+        }
+        
         isAuthenticated = false;
         currentUser = null;
-        
-        if (token && tokenManager.isExpired(token)) {
-            authStorage.clear();
-        }
         
         return { isValid: false, token, user };
     },
 
-    checkExisting() {
-        const result = this.check();
+    async checkExisting() {
+        const result = await this.check();
         if (result.isValid) {
             utils.redirect(utils.getRedirectUrl('main'));
         }
@@ -225,7 +244,7 @@ const redirectManager = {
 
 // 页面初始化
 const pageInitializer = {
-    init() {
+    async init() {
         if (window.authSystemInitialized) return;
         
         const pageType = utils.getPageType();
@@ -239,7 +258,7 @@ const pageInitializer = {
         if (pageType === PAGE_TYPES.AUTH) {
             this.initAuthPage();
         } else {
-            this.initMainPage();
+            await this.initMainPage();
         }
         
         window.authSystemInitialized = true;
@@ -251,8 +270,8 @@ const pageInitializer = {
         tokenManager.startRefreshTimer();
     },
 
-    initMainPage() {
-        const authStatus = authChecker.check();
+    async initMainPage() {
+        const authStatus = await authChecker.check();
         if (authStatus.isValid) {
             tokenManager.startRefreshTimer();
             this.updateUserDisplay();
@@ -453,13 +472,39 @@ const formHandler = {
 // 公共函数
 const publicAPI = {
     // 认证状态
-    isUserAuthenticated() {
+    async isUserAuthenticated() {
+        const token = authStorage.getToken();
+        if (!token) return false;
+        
+        // 如果token过期，尝试刷新
+        if (tokenManager.isExpired(token)) {
+            console.log('Token已过期，尝试刷新...');
+            const refreshSuccess = await tokenManager.refresh();
+            if (refreshSuccess) {
+                console.log('Token刷新成功');
+                return true;
+            } else {
+                console.log('Token刷新失败');
+                return false;
+            }
+        }
+        
+        return true;
+    },
+
+    // 同步版本的认证检查（用于不需要等待的场景）
+    isUserAuthenticatedSync() {
         const token = authStorage.getToken();
         return !!(token && !tokenManager.isExpired(token));
     },
 
     getCurrentUser() {
-        return this.isUserAuthenticated() ? currentUser : null;
+        return this.isUserAuthenticatedSync() ? currentUser : null;
+    },
+
+    // 获取存储的token（用于其他模块）
+    getStoredToken() {
+        return authStorage.getToken();
     },
 
     getAuthHeaders() {
@@ -485,6 +530,11 @@ const publicAPI = {
         redirectManager.toAuth();
     },
 
+    // 跳转到主页
+    redirectToMain() {
+        redirectManager.toMain();
+    },
+
     refreshToken() {
         return tokenManager.refresh();
     },
@@ -497,6 +547,11 @@ const publicAPI = {
         return authStorage.setAuth(token, user);
     },
 
+    // 显示认证弹框（用于播放器页面）
+    showAuthModal() {
+        this.goToAuth();
+    },
+
     // 调试
     getAuthState() {
         return {
@@ -507,9 +562,9 @@ const publicAPI = {
         };
     },
 
-    forceCheckAuth() {
+    async forceCheckAuth() {
         const pageType = utils.getPageType();
-        return pageType === PAGE_TYPES.AUTH ? authChecker.checkExisting() : authChecker.check();
+        return pageType === PAGE_TYPES.AUTH ? await authChecker.checkExisting() : await authChecker.check();
     },
 
     // 紧急停止
@@ -563,7 +618,7 @@ function switchAuthMode() {
 }
 
 // 事件绑定
-document.addEventListener('DOMContentLoaded', () => pageInitializer.init());
+document.addEventListener('DOMContentLoaded', async () => await pageInitializer.init());
 
 window.addEventListener('beforeunload', () => {
     if (tokenRefreshTimer) {
