@@ -36,7 +36,6 @@ const utils = {
             pageType = PAGE_TYPES.MAIN;
         }
         
-        console.log(`页面类型检测: pathname=${pathname}, hostname=${hostname}, isLocal=${isLocal}, pageType=${pageType}`);
         return pageType;
     },
 
@@ -87,18 +86,8 @@ const authState = {
             if (nowUTC < expiresAt) {
                 tokenExpiresAt = expiresAt;
                 isAuthenticated = true;
-                console.log('从localStorage恢复认证状态:', {
-                    expiresAt,
-                    expiresTime: new Date(expiresAt).toLocaleString(),
-                    timeDiff: expiresAt - nowUTC,
-                    timeDiffMinutes: Math.floor((expiresAt - nowUTC) / (1000 * 60)),
-                    nowUTC,
-                    nowUTCISO: new Date(nowUTC).toISOString(),
-                    expiresUTCISO: new Date(expiresAt).toISOString()
-                });
                 return true;
             } else {
-                console.log('localStorage中的token已过期，清除状态');
                 this.clear();
                 return false;
             }
@@ -109,28 +98,12 @@ const authState = {
     // 检查token是否过期
     isTokenExpired() {
         // 使用UTC时间进行比较，避免时区问题
-        // 获取当前UTC时间戳（毫秒）
-        const nowUTC = Math.floor(Date.now() / 1000) * 1000; // 转换为秒级再转回毫秒，确保UTC对齐
-        const isExpired = nowUTC >= tokenExpiresAt;
-        console.log('isTokenExpired检查:', {
-            nowUTC,
-            tokenExpiresAt,
-            isExpired,
-            nowTime: new Date(nowUTC).toLocaleString(),
-            expiresTime: new Date(tokenExpiresAt).toLocaleString(),
-            timeDiff: tokenExpiresAt - nowUTC,
-            timeDiffMinutes: Math.floor((tokenExpiresAt - nowUTC) / (1000 * 60)),
-            note: '使用UTC时间比较，避免时区差异',
-            nowUTCISO: new Date(nowUTC).toISOString(),
-            expiresUTCISO: new Date(tokenExpiresAt).toISOString()
-        });
-        return isExpired;
+        const nowUTC = Math.floor(Date.now() / 1000) * 1000;
+        return nowUTC >= tokenExpiresAt;
     },
 
     // 设置认证状态
     setAuth(expiresAt) {
-        console.log('setAuth被调用，参数:', expiresAt);
-        console.log('设置前的状态:', { isAuthenticated, tokenExpiresAt });
         tokenExpiresAt = expiresAt;
         isAuthenticated = true;
         
@@ -138,7 +111,6 @@ const authState = {
         localStorage.setItem('tokenExpiresAt', expiresAt.toString());
         localStorage.setItem('isAuthenticated', 'true');
         
-        console.log('设置后的状态:', { isAuthenticated, tokenExpiresAt });
         return true;
     },
 
@@ -147,10 +119,9 @@ const authState = {
         isAuthenticated = false;
         currentUser = null;
         tokenExpiresAt = 0;
-        
         // 清除持久化存储
-        localStorage.removeItem('tokenExpiresAt');
-        localStorage.removeItem('isAuthenticated');
+        localStorage.clear();
+        sessionStorage.clear();
     },
 
     // 获取认证状态
@@ -184,7 +155,6 @@ const tokenManager = {
             }
             
             // 刷新失败，清除认证状态
-            console.log('Token刷新失败，状态码:', response.status, '响应:', await response.text());
             authState.clear();
             return false;
         } catch (error) {
@@ -200,16 +170,12 @@ const tokenManager = {
         
         tokenRefreshTimer = setInterval(async () => {
             if (authState.isTokenExpired()) {
-                console.log('Access token已过期，尝试刷新...');
                 const success = await this.refresh();
                 if (!success) {
-                    console.log('刷新失败，需要重新登录');
                     // 只有在刷新失败且不在认证页面时才跳转
                     if (utils.getPageType() !== PAGE_TYPES.AUTH) {
                         utils.redirect(utils.getRedirectUrl('auth'));
                     }
-                } else {
-                    console.log('Token刷新成功');
                 }
             }
         }, AUTH_CONFIG.TOKEN_REFRESH_INTERVAL);
@@ -254,35 +220,23 @@ const userManager = {
 // 认证状态检查
 const authChecker = {
     async check() {
-        console.log('authChecker.check() 被调用');
-        console.log('当前内存状态:', { isAuthenticated, tokenExpiresAt });
-        
         // 如果内存中没有状态，尝试从localStorage恢复
         if (!isAuthenticated && tokenExpiresAt === 0) {
-            console.log('尝试从localStorage恢复认证状态...');
-            const restored = authState.init();
-            if (restored) {
-                console.log('成功从localStorage恢复认证状态');
-            }
+            authState.init();
         }
         
         // 首先检查内存中的状态
         if (isAuthenticated && !authState.isTokenExpired()) {
-            console.log('内存中认证状态有效，无需刷新token');
             return { isValid: true, user: currentUser };
         }
         
         // 如果内存中没有有效状态，尝试刷新token
-        console.log('内存中无有效认证状态，尝试刷新token...');
         const refreshSuccess = await tokenManager.refresh();
         if (refreshSuccess) {
-            console.log('Token刷新成功，认证状态有效');
             // 获取用户信息
             const userInfo = await userManager.fetchUserInfo();
-            console.log('获取到的用户信息:', userInfo);
             return { isValid: true, user: userInfo };
         } else {
-            console.log('Token刷新失败，认证状态无效');
             return { isValid: false, user: null };
         }
     },
@@ -291,7 +245,6 @@ const authChecker = {
         const result = await this.check();
         if (result.isValid) {
             // 如果用户已认证，跳转到主页
-            console.log('用户已认证，跳转到主页');
             redirectManager.toMain();
         }
         return result;
@@ -302,7 +255,6 @@ const authChecker = {
 const redirectManager = {
     toMain() {
         if (utils.getPageType() === PAGE_TYPES.MAIN) {
-            console.log('当前已在主页，无需跳转');
             return;
         }
         
@@ -314,7 +266,6 @@ const redirectManager = {
             targetUrl = 'index.html';
         }
         
-        console.log(`跳转到主页: ${targetUrl}, 当前页面类型: ${utils.getPageType()}`);
         utils.redirect(targetUrl);
     },
 
@@ -329,7 +280,6 @@ const redirectManager = {
             targetUrl = 'auth.html';
         }
         
-        console.log(`跳转到认证页面: ${targetUrl}`);
         utils.redirect(targetUrl);
     }
 };
@@ -366,14 +316,11 @@ const pageInitializer = {
 
     async initMainPage() {
         const authStatus = await authChecker.check();
-        console.log('initMainPage - authStatus:', authStatus);
         
         if (authStatus.isValid) {
-            console.log('认证状态有效，初始化主页');
             tokenManager.startRefreshTimer();
             await userManager.updateUserDisplay();
         } else {
-            console.log('认证状态无效，跳转到登录页');
             redirectManager.toAuth();
         }
     },
@@ -405,7 +352,6 @@ const formHandler = {
         this.setLoading('loginBtn', true);
         
         try {
-            console.log('开始登录请求...');
             const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -414,19 +360,13 @@ const formHandler = {
             });
 
             const data = await response.json();
-            console.log('登录响应:', data);
             
             if (response.ok && data.expires_at) {
-                console.log('登录响应成功，expires_at:', data.expires_at);
                 const authResult = authState.setAuth(data.expires_at);
-                console.log('authState.setAuth结果:', authResult);
-                console.log('当前认证状态:', authState.getAuthStatus());
                 
                 if (authResult) {
-                    console.log('登录成功，设置认证状态');
                     this.showSuccess('登录成功，正在跳转...');
                     setTimeout(() => {
-                        console.log('执行跳转...');
                         redirectManager.toMain();
                     }, 1000);
                 } else {
@@ -484,10 +424,7 @@ const formHandler = {
             const data = await response.json();
             
             if (response.ok && data.expires_at) {
-                console.log('注册响应成功，expires_at:', data.expires_at);
                 const authResult = authState.setAuth(data.expires_at);
-                console.log('authState.setAuth结果:', authResult);
-                console.log('当前认证状态:', authState.getAuthStatus());
                 
                 if (authResult) {
                     this.showSuccess('注册成功，正在跳转...');
@@ -610,15 +547,12 @@ const publicAPI = {
         }
         
         // 如果内存中没有有效状态，尝试刷新token
-        console.log('内存中无有效认证状态，尝试刷新token...');
         const refreshSuccess = await tokenManager.refresh();
         if (refreshSuccess) {
-            console.log('Token刷新成功');
             // 获取用户信息
             await userManager.fetchUserInfo();
             return true;
         } else {
-            console.log('Token刷新失败');
             return false;
         }
     },
