@@ -189,48 +189,48 @@ export async function onRequest(context) {
                     logDebug(`处理Cookie: ${adjustedCookie}`);
 
                     // 特殊处理刷新令牌Cookie - 确保路径正确
-                    if (adjustedCookie.includes('refreshToken')) {
-                        logDebug('检测到刷新令牌Cookie，进行特殊处理');
+                    // if (adjustedCookie.includes('refreshToken')) {
+                    //     logDebug('检测到刷新令牌Cookie，进行特殊处理');
                         
-                        // 刷新令牌应该设置到 /proxy/api/auth/refresh 路径
-                        if (adjustedCookie.includes('Path=/proxy/api/auth/refresh')) {
-                            logDebug('路径已经正确，无需修改');
-                        } else if (adjustedCookie.includes('Path=/api/auth/refresh')) {
-                            // 替换路径
-                            adjustedCookie = adjustedCookie.replace(
-                                'Path=/api/auth/refresh',
-                                'Path=/proxy/api/auth/refresh'
-                            );
-                            logDebug('已替换Cookie路径');
-                        } else if (!adjustedCookie.includes('Path=')) {
-                            // 如果没有设置Path，添加正确的路径
-                            adjustedCookie += '; Path=/proxy/api/auth/refresh';
-                            logDebug('已添加Cookie路径');
-                        }
+                    //     // 刷新令牌应该设置到 /proxy/api/auth/refresh 路径
+                    //     if (adjustedCookie.includes('Path=/proxy/api/auth/refresh')) {
+                    //         logDebug('路径已经正确，无需修改');
+                    //     } else if (adjustedCookie.includes('Path=/api/auth/refresh')) {
+                    //         // 替换路径
+                    //         adjustedCookie = adjustedCookie.replace(
+                    //             'Path=/api/auth/refresh',
+                    //             'Path=/proxy/api/auth/refresh'
+                    //         );
+                    //         logDebug('已替换Cookie路径');
+                    //     } else if (!adjustedCookie.includes('Path=')) {
+                    //         // 如果没有设置Path，添加正确的路径
+                    //         adjustedCookie += '; Path=/proxy/api/auth/refresh';
+                    //         logDebug('已添加Cookie路径');
+                    //     }
 
-                        // 确保SameSite=Strict设置正确
-                        if (!adjustedCookie.includes('SameSite=')) {
-                            adjustedCookie += '; SameSite=Strict';
-                            logDebug('已添加SameSite=Strict');
-                        }
+                    //     // 确保SameSite=Strict设置正确
+                    //     if (!adjustedCookie.includes('SameSite=')) {
+                    //         adjustedCookie += '; SameSite=Strict';
+                    //         logDebug('已添加SameSite=Strict');
+                    //     }
 
-                        // 确保HttpOnly设置正确
-                        if (!adjustedCookie.includes('HttpOnly')) {
-                            adjustedCookie += '; HttpOnly';
-                            logDebug('已添加HttpOnly');
-                        }
-                    } else {
-                        // 处理其他Cookie的路径
-                        if (adjustedCookie.includes('Path=/api/')) {
-                            adjustedCookie = adjustedCookie.replace(
-                                /Path=\/api\//g,
-                                'Path=/proxy/api/'
-                            );
-                        } else if (!adjustedCookie.includes('Path=')) {
-                            // 如果后端没有设置Path，则设置为代理路径
-                            adjustedCookie += '; Path=/proxy/api';
-                        }
-                    }
+                    //     // 确保HttpOnly设置正确
+                    //     if (!adjustedCookie.includes('HttpOnly')) {
+                    //         adjustedCookie += '; HttpOnly';
+                    //         logDebug('已添加HttpOnly');
+                    //     }
+                    // } else {
+                    //     // 处理其他Cookie的路径
+                    //     if (adjustedCookie.includes('Path=/api/')) {
+                    //         adjustedCookie = adjustedCookie.replace(
+                    //             /Path=\/api\//g,
+                    //             'Path=/proxy/api/'
+                    //         );
+                    //     } else if (!adjustedCookie.includes('Path=')) {
+                    //         // 如果后端没有设置Path，则设置为代理路径
+                    //         adjustedCookie += '; Path=/proxy/api';
+                    //     }
+                    // }
 
                     // 处理Domain - 移除后端特定的Domain设置
                     if (adjustedCookie.includes('Domain=')) {
