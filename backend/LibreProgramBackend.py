@@ -45,6 +45,10 @@ app.config['JWT_ALGORITHM'] = 'HS256'
 app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] = 5  # Access Token 5分钟过期
 app.config['REFRESH_TOKEN_EXPIRATION_DAYS'] = 7  # Refresh Token 7天过期
 
+# 新增：Cookie配置
+app.config['COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', 'false').lower() == 'true'  # 生产环境设为True
+app.config['COOKIE_DOMAIN'] = os.environ.get('COOKIE_DOMAIN', None)  # 生产环境设置域名
+
 DB_PATH = 'data/libretv.db'
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
@@ -251,6 +255,19 @@ def set_refresh_token_cookie(response, token):
     )
     return response
 
+def set_access_token_cookie(response, token):
+    """设置访问令牌Cookie"""
+    response.set_cookie(
+        'accessToken',
+        token,
+        httponly=True,
+        secure=app.config['COOKIE_SECURE'],
+        path='/proxy/api',  # 路径设置为/proxy/api
+        samesite='Strict',
+        max_age=app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] * 60  # 5分钟 = 300秒
+    )
+    return response
+
 
 def revoke_refresh_tokens(user_id):
     """撤销用户的所有刷新令牌"""
@@ -288,13 +305,18 @@ def store_refresh_token(user_id, token):
 def jwt_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        token = request.headers.get('Authorization')
+        # 优先从Cookie中获取access token
+        token = request.cookies.get('accessToken')
+        # 如果Cookie中没有，则从Authorization header中获取（向后兼容）
         if not token:
-            app.logger.warning("请求缺少认证令牌")
-            return jsonify({'error': '缺少认证令牌'}), 401
+            token = request.headers.get('Authorization')
+            # 如果Authorization header中还是没有，则返回401
+            if not token:
+                app.logger.warning("请求缺少认证令牌")
+                return jsonify({'error': '缺少认证令牌'}), 401
+            if token and token.startswith('Bearer '):
+                token = token[7:]
 
-        if token.startswith('Bearer '):
-            token = token[7:]
 
         payload = verify_access_token(token)
         if not payload:
@@ -485,6 +507,7 @@ def register():
             response = make_response(jsonify(response_data))
             response.headers['Content-Type'] = 'application/json; charset=utf-8'
             response = set_refresh_token_cookie(response, refresh_token)
+            response = set_access_token_cookie(response, access_token)
 
             app.logger.info(f"用户注册成功: {username} (ID: {user_id})")
             return response, 201
@@ -580,6 +603,7 @@ def login():
             response = make_response(jsonify(response_data))
             response.headers['Content-Type'] = 'application/json; charset=utf-8'
             response = set_refresh_token_cookie(response, refresh_token)
+            response = set_access_token_cookie(response, access_token)
 
             app.logger.info(f"用户登录成功: {username} (ID: {user_id})")
             return response, 200
@@ -637,6 +661,7 @@ def refresh_token():
 
         response = make_response(jsonify(response_data))
         response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        response = set_access_token_cookie(response, new_access_token)
 
         app.logger.info(f"令牌刷新成功: 用户 {username} (ID: {user_id})")
         return response, 200
@@ -666,12 +691,50 @@ def logout():
             expires=0,
             path='/proxy/api/auth/refresh'
         )
+        # 清除access token cookie
+        response.set_cookie(
+            'accessToken',
+            '',
+            expires=0,
+            path='/proxy/api'
+        )
 
         app.logger.info(f"用户登出成功: {username} (ID: {user_id})")
         return response, 200
     except Exception as e:
         app.logger.error(f"登出过程中出错: {str(e)}")
         return jsonify({'error': f'登出失败: {str(e)}'}), 500
+
+# 用户详情查询接口
+@app.route('/api/auth/user-info', methods=['GET'])
+@jwt_required
+def get_user_info():
+    try:
+        user_id = request.user['user_id']
+        
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.execute(
+                'SELECT username, email, created_at, last_login FROM users WHERE id = ?',
+                (user_id,)
+            )
+            user_data = cursor.fetchone()
+            
+            if not user_data:
+                return jsonify({'error': '用户不存在'}), 404
+            
+            username, email, created_at, last_login = user_data
+            
+            return jsonify({
+                'id': user_id,
+                'username': username,
+                'email': email,
+                'created_at': created_at,
+                'last_login': last_login
+            }), 200
+            
+    except Exception as e:
+        app.logger.error(f"获取用户信息时出错: {str(e)}")
+        return jsonify({'error': f'获取用户信息失败: {str(e)}'}), 500
 
 # 健康检查端点
 @app.route('/api/health', methods=['GET'])
