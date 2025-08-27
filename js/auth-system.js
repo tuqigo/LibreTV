@@ -540,20 +540,43 @@ const publicAPI = {
     },
 
     // 操作
-    logout() {
-        localStorage.clear();
-        authStorage.clear();
-        
-        // 清理认证页面可能存在的状态
-        if (utils.getPageType() === PAGE_TYPES.AUTH) {
-            cleanupFormState();
+    async logout() {
+        try {
+            // 先调用后端登出接口
+            const token = authStorage.getToken();
+            if (token) {
+                const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    console.log('后端登出成功');
+                } else {
+                    console.warn('后端登出失败，但继续清理本地状态');
+                }
+            }
+        } catch (error) {
+            console.warn('调用登出接口时出错，但继续清理本地状态:', error);
+        } finally {
+            // 无论后端是否成功，都清理本地状态
+            localStorage.clear();
+            authStorage.clear();
+            
+            // 清理认证页面可能存在的状态
+            if (utils.getPageType() === PAGE_TYPES.AUTH) {
+                cleanupFormState();
+            }
+            
+            if (window.showToast) {
+                window.showToast('已成功登出', 'success');
+            }
+            
+            setTimeout(() => redirectManager.toAuth(), 500);
         }
-        
-        if (window.showToast) {
-            window.showToast('已成功登出', 'success');
-        }
-        
-        setTimeout(() => redirectManager.toAuth(), 500);
     },
 
     goToAuth() {
@@ -681,7 +704,7 @@ window.addEventListener('beforeunload', () => {
 window.AuthSystem = publicAPI;
 window.goToAuth = publicAPI.goToAuth;
 window.checkAuthStatus = publicAPI.forceCheckAuth;
-window.logout = publicAPI.logout;
+window.logout = async () => await publicAPI.logout();
 window.switchAuthMode = switchAuthMode;
 window.emergencyStop = publicAPI.emergencyStop;
 

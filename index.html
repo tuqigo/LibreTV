@@ -185,7 +185,7 @@
                 <label class="block text-sm font-medium text-gray-400 mb-3 border-b border-[#333] pb-1">一般功能</label>
                 <!-- <button onclick="importConfig()" class="px-4 py-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg mb-2">导入配置</button> -->
                 <!-- <button onclick="exportConfig()" class="px-4 py-2 mb-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">导出配置</button> -->
-                <button onclick="logout()" class="px-4 py-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">退出登录</button>
+                <button onclick="handleLogout()" class="px-4 py-2 w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-lg text-sm transition-all duration-300 shadow-md hover:shadow-lg">退出登录</button>
             </div>
         </div>
     </div>
@@ -409,6 +409,25 @@
                 console.error("异步方法执行出错:", error);
             }
         });
+
+        // 处理退出登录的函数
+        async function handleLogout() {
+            try {
+                // 禁用按钮防止重复点击
+                const logoutBtn = event.target;
+                logoutBtn.disabled = true;
+                logoutBtn.textContent = '退出中...';
+                
+                // 调用异步登出函数
+                await logout();
+            } catch (error) {
+                console.error('退出登录时出错:', error);
+                // 恢复按钮状态
+                const logoutBtn = event.target;
+                logoutBtn.disabled = false;
+                logoutBtn.textContent = '退出登录';
+            }
+        }
     </script>
 
     <!-- PWA 注册 -->
