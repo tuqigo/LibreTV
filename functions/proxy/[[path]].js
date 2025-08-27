@@ -221,8 +221,11 @@ export async function onRequest(context) {
                     logDebug(`调整后的Cookie: ${adjustedCookie}`);
                 }
 
-                // 设置调整后的Cookie头
-                responseHeaders.set('Set-Cookie', adjustedCookies.join(', '));
+                for (const adjusted of adjustedCookies) {
+                    // 设置调整后的Cookie头
+                    responseHeaders.append('Set-Cookie', adjusted);
+                }
+
                 logDebug(`最终Set-Cookie头: ${adjustedCookies.join(', ')}`);
             }
 
