@@ -219,12 +219,31 @@ export async function onRequest(context) {
                             adjustedCookie += '; HttpOnly';
                             logDebug('已添加HttpOnly');
                         }
+                    } else if (adjustedCookie.includes('accessToken')) {
+
+                        logDebug('检测到access令牌Cookie，进行特殊处理');
+                        
+                        // 刷新令牌应该设置到 /proxy/api/auth/refresh 路径
+                        if (adjustedCookie.includes('Path=/proxy/api')) {
+                            logDebug('路径已经正确，无需修改');
+                        } else if (adjustedCookie.includes('Path=/api')) {
+                            // 替换路径
+                            adjustedCookie = adjustedCookie.replace(
+                                'Path=/api',
+                                'Path=/proxy/api'
+                            );
+                            logDebug('已替换Access Cookie路径');
+                        } else if (!adjustedCookie.includes('Path=')) {
+                            // 如果没有设置Path，添加正确的路径
+                            adjustedCookie += '; Path=/proxy/api';
+                            logDebug('已添加Access Cookie路径');
+                        }
                     } else {
                         // 处理其他Cookie的路径
                         if (adjustedCookie.includes('Path=/api/')) {
                             adjustedCookie = adjustedCookie.replace(
                                 /Path=\/api\//g,
-                                'Path=/proxy/api/'
+                                'Path=/proxy/api'
                             );
                         } else if (!adjustedCookie.includes('Path=')) {
                             // 如果后端没有设置Path，则设置为代理路径
