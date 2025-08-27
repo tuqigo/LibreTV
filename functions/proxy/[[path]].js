@@ -170,67 +170,43 @@ export async function onRequest(context) {
             const resp = await fetch(forwarded);
             const body = await resp.text();
 
-            // 获取后端设置的Cookie
-            const setCookieHeader = resp.headers.get('Set-Cookie');
-            logDebug(`后端Set-Cookie: ${setCookieHeader}`);
-            logDebug(`响应状态: ${resp.status}`);
+            const proxyDomain = new URL(request.url).hostname;
 
-            // 构建响应头
-            const responseHeaders = new Headers(resp.headers);
-
-            // 处理后端设置的Cookie
-            if (setCookieHeader) {
-                // 处理可能的多个Cookie（Set-Cookie头可能有多个值）
-                const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
-                const adjustedCookies = [];
-
-                for (const cookie of cookies) {
-                    let adjustedCookie = cookie;
-
-                    // 处理其他Cookie的路径
-                    if (adjustedCookie.includes('Path=/api/')) {
-                        adjustedCookie = adjustedCookie.replace(
-                            /Path=\/api\//g,
-                            'Path=/proxy/api'
-                        );
-                    } else if (!adjustedCookie.includes('Path=')) {
-                        // 如果后端没有设置Path，则设置为代理路径
-                        adjustedCookie += '; Path=/proxy/api';
-                    }
-
-                    // 处理Domain - 移除后端特定的Domain设置
-                    if (adjustedCookie.includes('Domain=')) {
-                        const backendDomain = new URL(backendUrl).hostname;
-                        const proxyDomain = new URL(request.url).hostname;
-
-                        // 如果Domain设置的是后端域名，替换为代理域名
-                        if (adjustedCookie.includes(`Domain=${backendDomain}`)) {
-                            adjustedCookie = adjustedCookie.replace(
-                                `Domain=${backendDomain}`,
-                                `Domain=${proxyDomain}`
-                            );
-                            logDebug(`已替换Domain: ${backendDomain} -> ${proxyDomain}`);
-                        } else {
-                            // 否则完全移除Domain设置，让浏览器使用当前域名
-                            adjustedCookie = adjustedCookie.replace(/Domain=[^;]+;?/i, '');
-                            logDebug('已移除Domain设置');
-                        }
-                    }
-
-                    adjustedCookies.push(adjustedCookie);
-                    logDebug(`调整后的Cookie: ${adjustedCookie}`);
-                }
-
-                for (const adjusted of adjustedCookies) {
-                    // 设置调整后的Cookie头
-                    responseHeaders.append('Set-Cookie', adjusted);
-                }
-
-                logDebug(`最终Set-Cookie头: ${adjustedCookies.join(', ')}`);
+            // 收集后端所有 Set-Cookie（按 entries 获取每个出现的值）
+            const backendCookies = [];
+            for (const [k, v] of resp.headers.entries()) {
+                if (k.toLowerCase() === 'set-cookie') backendCookies.push(v);
             }
 
-            // 返回响应并添加CORS头
-            return createResponse(body, resp.status, Object.fromEntries(responseHeaders));
+            // 构造返回 Headers，拷贝除 set-cookie 外的所有头
+            const responseHeaders = new Headers();
+            for (const [k, v] of resp.headers.entries()) {
+                if (k.toLowerCase() === 'set-cookie') continue;
+                responseHeaders.set(k, v);
+            }
+
+            // 调整后端 cookie（Path/Domain/其它）并逐个 append
+            for (let cookie of backendCookies) {
+                // 移除 Domain（交给浏览器使用当前域名），或按需替换为 proxy 的域名
+                cookie = cookie.replace(/Domain=[^;]+;?/i, proxyDomain);
+                responseHeaders.append('Set-Cookie', cookie);
+                // debug: console.log('adjusted cookie ->', cookie);
+            }
+
+            // 必要的 CORS（当允许带凭证时，不能用 *）
+            const origin = request.headers.get('Origin') || request.headers.get('origin') || '*';
+            if (responseHeaders.get('Access-Control-Allow-Origin') === '*' && origin !== '*') {
+                // prefer origin when credentials required
+                responseHeaders.set('Access-Control-Allow-Origin', origin);
+            } else {
+                responseHeaders.set('Access-Control-Allow-Origin', origin);
+            }
+            responseHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+            responseHeaders.set('Access-Control-Allow-Headers', '*');
+            responseHeaders.set('Access-Control-Allow-Credentials', 'true');
+
+            // 直接用 Headers 返回（保持重复 Set-Cookie）
+            return new Response(body, { status: resp.status, headers: responseHeaders });
         }
 
         // 原有的通用代理逻辑
