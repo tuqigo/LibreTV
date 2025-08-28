@@ -12,94 +12,412 @@ let currentVideoTitle = '';
 let episodesReversed = false;
 
 
-// 获取最新视频片段的函数
-// 获取“最新可直连”的媒体分片（优先 PART）
-async function getLatestSegmentUrl(m3u8Url, { preferPart = true } = {}) {
+
+// 把 "1920x1080" / "1080x608" / "1080" 等映射为常见标签
+function humanResolution(res) {
+    if (!res) return '未知';
+    // 提取两个数或一个数
+    const m = String(res).match(/(\d+)\s*x\s*(\d+)/i);
+    let width, height;
+    if (m) {
+        width = parseInt(m[1], 10);
+        height = parseInt(m[2], 10);
+    } else if (/^\d+$/.test(String(res).trim())) {
+        // 只有一个数字，视为高度或宽度（当作高度）
+        height = parseInt(res, 10);
+    } else {
+        return '未知';
+    }
+
+    // 如果只给了宽或高，确保有一个高度值：优先使用 height，否则使用 width
+    if (!height && width) height = width;
+    if (!height) return '未知';
+
+    // 标准分辨率映射表（以高度为准）
+    const standards = [
+        { label: '4K', h: 2160 },
+        { label: '2K', h: 1440 },
+        { label: '1080P', h: 1080 },
+        { label: '720P', h: 720 },
+        { label: '480P', h: 480 },
+        { label: '360P', h: 360 },
+        { label: '240P', h: 240 }
+    ];
+
+    // 选择与实际高度差值最小的标准（nearest）
+    let best = standards[0];
+    let bestDiff = Math.abs(standards[0].h - height);
+    for (let i = 1; i < standards.length; i++) {
+        const d = Math.abs(standards[i].h - height);
+        if (d < bestDiff) { bestDiff = d; best = standards[i]; }
+    }
+    return best.label;
+}
+
+
+function formatDuration(seconds) {
+    seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+    if (seconds < 60) {
+        return `${seconds}s`;
+    }
+    if (seconds < 3600) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`; // e.g. "8:30"
+    }
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; // e.g. "2:08:30"
+}
+
+
+
+
+// 获取最新视频片段的函数 ,并打印视频信息 包括（视频总时长，总大小，视频分辨率等）
+// 获取"最新可直连"的媒体分片（优先 PART）
+// 改进版 getLatestSegmentUrl：返回对象 { segmentUrl, info, errors }
+// 完整替换版：优先取带 duration 的最后 N 段、返回 estimatedBytes + estimatedSize
+async function getLatestSegmentUrl(m3u8Url, {
+    preferPart = true,
+    timeout = 6000,
+    proxyPrefix = (typeof PROXY_URL !== 'undefined' ? PROXY_URL : ''),
+    headSamples = 3,            // 希望检测的样本数量（最后带 duration 的 N 段）
+    concurrency = 3,
+    retries = 1
+} = {}) {
+    const errors = [];
     const cacheBust = (u) => u + (u.includes('?') ? '&' : '?') + `_=${Date.now()}`;
-    const resolveUrl = (u, base) => new URL(u, base).toString();
+
+    const resolveUrlSafe = (u, base) => {
+        try { return new URL(u, base).toString(); }
+        catch (e) { errors.push(`URL解析失败:${u} base:${base} -> ${e.message}`); return null; }
+    };
+
+    const fetchWithTimeout = async (url, opts = {}, t = timeout) => {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), t);
+        opts.signal = controller.signal;
+        try {
+            const res = await fetch(cacheBust(url), opts);
+            return res;
+        } catch (e) {
+            throw e;
+        } finally { clearTimeout(id); }
+    };
 
     const fetchText = async (url) => {
-        const res = await fetch(cacheBust(url), { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`HTTP错误: ${res.status}`);
-        return res.text();
-    };
-
-    const isMediaFile = (line) => {
-        const l = line.trim();
-        if (!l || l.startsWith('#') || l.endsWith('.m3u8')) return false;
-        const path = l.split('#')[0].split('?')[0].toLowerCase();
-        return /\.(ts|m4s|mp4|m4a|aac|m4v)$/.test(path);
-    };
-
-    // 1) 拉取首个清单
-    let text = await fetchText(PROXY_URL + encodeURIComponent(m3u8Url));
-
-    // 2) 如为 Master（多码率），选带宽最高的子清单
-    if (/#EXT-X-STREAM-INF/i.test(text)) {
-        let bestUri = null, bestBw = -1;
-        const re = /#EXT-X-STREAM-INF:([^\r\n]*)[\r\n]+([^\r\n#]+)/gi;
-        let m;
-        while ((m = re.exec(text))) {
-            const attrs = m[1] || '';
-            const uri = m[2].trim();
-            const bw = (attrs.match(/BANDWIDTH=(\d+)/i) || [])[1];
-            const bwNum = bw ? parseInt(bw, 10) : 0;
-            if (bwNum > bestBw) {
-                bestBw = bwNum;
-                bestUri = resolveUrl(uri, m3u8Url);
+        const target = proxyPrefix ? proxyPrefix + encodeURIComponent(url) : url;
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const r = await fetchWithTimeout(target, { cache: 'no-cache' });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return await r.text();
+            } catch (e) {
+                errors.push(`fetch失败: ${target} (${i}) -> ${e.message}`);
+                if (i === retries) throw e;
             }
         }
-        if (bestUri) {
-            m3u8Url = bestUri;
-            text = await fetchText(bestUri);
+    };
+
+    // 并发限流工具（信号量）
+    const semaphore = { count: 0, queue: [] };
+    const acquire = () => new Promise(res => {
+        if (semaphore.count < concurrency) { semaphore.count++; res(); }
+        else semaphore.queue.push(res);
+    });
+    const release = () => {
+        semaphore.count--;
+        const fn = semaphore.queue.shift();
+        if (fn) { semaphore.count++; fn(); }
+    };
+
+    // 获取 content-length：先 HEAD，再 GET Range 回退
+    const getContentLength = async (url) => {
+        const target = proxyPrefix ? proxyPrefix + encodeURIComponent(url) : url;
+        await acquire();
+        try {
+            try {
+                const head = await fetchWithTimeout(target, { method: 'HEAD', cache: 'no-cache' });
+                if (head && head.ok) {
+                    const cl = head.headers.get('content-length');
+                    if (cl && !isNaN(parseInt(cl, 10))) return parseInt(cl, 10);
+                }
+            } catch (e) {
+                errors.push(`HEAD 失败: ${target} -> ${e.message}`);
+            }
+
+            try {
+                const get = await fetchWithTimeout(target, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-cache' });
+                if (get && (get.ok || get.status === 206)) {
+                    const cr = get.headers.get('content-range');
+                    if (cr) {
+                        const m = cr.match(/\/(\d+)$/);
+                        if (m) return parseInt(m[1], 10);
+                    }
+                    const cl2 = get.headers.get('content-length');
+                    if (cl2 && !isNaN(parseInt(cl2, 10))) return parseInt(cl2, 10);
+                }
+            } catch (e) {
+                errors.push(`Range GET 失败: ${target} -> ${e.message}`);
+            }
+            return null;
+        } finally { release(); }
+    };
+
+    const formatFileSize = (bytes) => {
+        if (bytes == null) return null;
+        if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(2) + ' GB';
+        if (bytes >= 1024 ** 2) return (bytes / 1024 ** 2).toFixed(2) + ' MB';
+        if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return `${bytes} B`;
+    };
+
+    const parsePlaylist = (text, baseUrl) => {
+        const lines = text.split(/\r?\n/);
+        const segments = []; // { uri, duration, isPart }
+        let lastExtinf = null;
+        for (let i = 0; i < lines.length; i++) {
+            const ln = lines[i].trim();
+            if (!ln) continue;
+            if (ln.startsWith('#EXTINF:')) {
+                const v = parseFloat(ln.substring(8).split(',')[0]);
+                lastExtinf = !isNaN(v) ? v : null;
+                continue;
+            }
+            if (/^#EXT-X-PART:/i.test(ln)) {
+                const m = ln.match(/DURATION=([\d.]+)/i);
+                const d = m ? parseFloat(m[1]) : null;
+                const um = ln.match(/URI="([^"]+)"/i);
+                if (um) {
+                    const ru = resolveUrlSafe(um[1], baseUrl);
+                    if (ru) segments.push({ uri: ru, duration: d || null, isPart: true });
+                }
+                continue;
+            }
+            if (ln.startsWith('#')) continue;
+            if (lastExtinf !== null) {
+                const ru = resolveUrlSafe(ln, baseUrl);
+                if (ru) segments.push({ uri: ru, duration: lastExtinf, isPart: false });
+                lastExtinf = null;
+                continue;
+            }
+            const path = ln.split('#')[0].split('?')[0].toLowerCase();
+            if (/\.(ts|m4s|mp4|m4a|aac|m4v)$/.test(path)) {
+                const ru = resolveUrlSafe(ln, baseUrl);
+                if (ru) segments.push({ uri: ru, duration: null, isPart: false });
+            }
         }
+        return segments;
+    };
+
+    try {
+        let text = await fetchText(m3u8Url);
+        if (!text) throw new Error('无法获取播放列表');
+
+        let mediaPlaylistText = text;
+        let mediaPlaylistUrl = m3u8Url;
+        let selectedBandwidth = null;
+        let selectedResolution = null;
+
+        if (/#EXT-X-STREAM-INF/i.test(text)) {
+            // Master playlist -> 选择最佳流（优先分辨率）
+            const candidates = [];
+            const re = /#EXT-X-STREAM-INF:([^\r\n]*)[\r\n]+([^\r\n#]+)/gi;
+            let m;
+            while ((m = re.exec(text))) {
+                const attrs = m[1] || '';
+                const uriRaw = m[2].trim();
+                const bw = (attrs.match(/BANDWIDTH=(\d+)/i) || [])[1];
+                const reso = (attrs.match(/RESOLUTION=(\d+x\d+)/i) || [])[1];
+                const bwNum = bw ? parseInt(bw, 10) : 0;
+                const uri = resolveUrlSafe(uriRaw, m3u8Url);
+                if (uri) candidates.push({ uri, bw: bwNum, reso });
+            }
+            let best = null;
+            for (const c of candidates) {
+                if (!best) { best = c; continue; }
+                if (c.reso && best.reso) {
+                    const pcur = c.reso.split('x').map(Number).reduce((a, b) => a * b, 1);
+                    const pbest = best.reso.split('x').map(Number).reduce((a, b) => a * b, 1);
+                    if (pcur > pbest) best = c;
+                } else if (c.bw > (best.bw || 0)) {
+                    best = c;
+                }
+            }
+            if (best) {
+                mediaPlaylistUrl = best.uri;
+                selectedBandwidth = best.bw || null;
+                selectedResolution = best.reso || null;
+                mediaPlaylistText = await fetchText(mediaPlaylistUrl);
+            } else {
+                errors.push('未找到变体流');
+            }
+        } else {
+            selectedBandwidth = (text.match(/BANDWIDTH=(\d+)/i) || [])[1] ? parseInt((text.match(/BANDWIDTH=(\d+)/i) || [])[1], 10) : null;
+            selectedResolution = (text.match(/RESOLUTION=(\d+x\d+)/i) || [])[1] || null;
+            mediaPlaylistText = text;
+        }
+
+        const segments = parsePlaylist(mediaPlaylistText, mediaPlaylistUrl);
+        if (!segments.length) throw new Error('未找到分片');
+
+        // 计算总时长（含 PART）
+        let totalDuration = 0;
+        for (const s of segments) if (s.duration) totalDuration += s.duration;
+        const isLive = !/#EXT-X-ENDLIST/i.test(mediaPlaylistText);
+        const info = {
+            isLive,
+            totalDuration,
+            totalDurationFormatted: totalDuration ? formatDuration(totalDuration) : null,
+            bandwidth: selectedBandwidth,
+            resolution: selectedResolution,
+            resolutionLabel: humanResolution(selectedResolution)
+        };
+
+        // 优先 PART
+        if (preferPart && /#EXT-X-PART:/i.test(mediaPlaylistText)) {
+            const partUris = [];
+            mediaPlaylistText.replace(/#EXT-X-PART:[^\n\r]*?URI="([^"]+)"/gi, (_, u) => {
+                const ru = resolveUrlSafe(u, mediaPlaylistUrl);
+                if (ru) partUris.push(ru);
+            });
+            if (partUris.length) return { segmentUrl: partUris[partUris.length - 1], info, estimatedBytes: null, estimatedSize: null, errors };
+            const hint = mediaPlaylistText.match(/#EXT-X-PRELOAD-HINT:[^\n\r]*TYPE=PART[^\n\r]*URI="([^"]+)"/i);
+            if (hint) {
+                const ru = resolveUrlSafe(hint[1], mediaPlaylistUrl);
+                if (ru) return { segmentUrl: ru, info, estimatedBytes: null, estimatedSize: null, errors };
+            }
+        }
+
+        // 选择样本：优先最后带 duration 的 headSamples 段；不够则向前扩展并接受无 duration 的段（默认用 2s）
+        const segCandidates = segments.filter(s => s.uri);
+        const samples = [];
+        let idx = segCandidates.length - 1;
+        while (samples.length < headSamples && idx >= 0) {
+            const s = segCandidates[idx];
+            // push if has duration or if we will run out of segments
+            if (s.duration != null || (segCandidates.length - idx) <= headSamples) {
+                samples.push(s);
+            }
+            idx--;
+        }
+        // 如果仍然不足，退回取最后 headSamples（即使没有 duration）
+        if (samples.length < headSamples) {
+            const lastK = segCandidates.slice(-headSamples);
+            samples.length = 0;
+            samples.push(...lastK);
+        }
+
+        // 并发获取 content-length（样本）
+        const promises = samples.map(s => (async () => {
+            const cl = await getContentLength(s.uri);
+            return { uri: s.uri, duration: s.duration, size: cl };
+        })());
+        const results = await Promise.all(promises);
+
+        // 用有效样本计算平均 bytes/sec（若没有 duration，给出默认段长 2s）
+
+
+        // ---------- 筛除非媒体与极小文件 ----------
+        const isImage = (u) => /\.(jpe?g|png|gif|webp|svg|bmp|ico)$/i.test(u);
+        const minSizeThreshold = 512; // bytes，低于此值视为无效样本
+
+        // 原 results: [{uri, duration, size}, ...]
+        const filtered = results.filter(r => r.size && r.size > minSizeThreshold && !isImage(r.uri));
+
+        // 如果没有有效样本，则尝试放宽过滤（保留 size>0 的非图片），再无则保留原样本
+        let usable = filtered;
+        if (usable.length === 0) {
+            usable = results.filter(r => r.size && r.size > 0 && !isImage(r.uri));
+        }
+        if (usable.length === 0) {
+            usable = results.filter(r => r.size && r.size > 0); // 最后仍无，则接受任何 size>0
+        }
+
+        // 计算平均 bytes/sec（用 duration 或 fallback 2s）
+        let sizesSum = 0, durationsSum = 0;
+        for (const v of usable) {
+            sizesSum += (v.size || 0);
+            durationsSum += (v.duration != null && v.duration > 0) ? v.duration : 2.0;
+        }
+        let estimatedBytes = null;
+        let estimatedSize = null;
+
+        if (usable.length > 0 && durationsSum > 0) {
+            const bytesPerSec = sizesSum / durationsSum;
+            const avgBps = bytesPerSec * 8;
+
+            // 如果 playlist 带宽存在但差异极大，则优先用 playlist BANDWIDTH 估算（更可信）
+            if (selectedBandwidth && (selectedBandwidth / Math.max(avgBps, 1) > 4)) {
+                // 差别大于 4x -> 使用 BANDWIDTH
+                if (totalDuration && totalDuration > 0) {
+                    estimatedBytes = Math.round((selectedBandwidth * totalDuration) / 8);
+                    estimatedSize = formatFileSize(estimatedBytes);
+                    errors.push(`样本平均码率 (${Math.round(avgBps)} bps) 明显小于 playlist BANDWIDTH (${selectedBandwidth} bps)，使用 BANDWIDTH 估算`);
+                } else {
+                    const oneMin = Math.round((selectedBandwidth * 60) / 8);
+                    const fiveMin = Math.round((selectedBandwidth * 300) / 8);
+                    const oneHour = Math.round((selectedBandwidth * 3600) / 8);
+                    estimatedBytes = null;
+                    estimatedSize = `1m≈${formatFileSize(oneMin)}, 5m≈${formatFileSize(fiveMin)}, 1h≈${formatFileSize(oneHour)}`;
+                    errors.push(`样本平均码率 (${Math.round(avgBps)} bps) 明显小于 playlist BANDWIDTH (${selectedBandwidth} bps)，使用 BANDWIDTH 估算`);
+                }
+            } else {
+                if (totalDuration && totalDuration > 0) {
+                    estimatedBytes = Math.round(sizesSum * (totalDuration / durationsSum));
+                    estimatedSize = formatFileSize(estimatedBytes);
+                } else {
+                    // 直播：给出分钟/小时估算
+                    const oneMin = Math.round(bytesPerSec * 60);
+                    const fiveMin = Math.round(bytesPerSec * 300);
+                    const oneHour = Math.round(bytesPerSec * 3600);
+                    estimatedBytes = null;
+                    estimatedSize = `1m≈${formatFileSize(oneMin)}, 5m≈${formatFileSize(fiveMin)}, 1h≈${formatFileSize(oneHour)}`;
+                }
+            }
+        } else if (selectedBandwidth) {
+            // 无样本回退到 playlist BANDWIDTH
+            if (totalDuration && totalDuration > 0) {
+                estimatedBytes = Math.round((selectedBandwidth * totalDuration) / 8);
+                estimatedSize = formatFileSize(estimatedBytes);
+            } else {
+                const oneMin = Math.round((selectedBandwidth * 60) / 8);
+                const fiveMin = Math.round((selectedBandwidth * 300) / 8);
+                const oneHour = Math.round((selectedBandwidth * 3600) / 8);
+                estimatedSize = `1m≈${formatFileSize(oneMin)}, 5m≈${formatFileSize(fiveMin)}, 1h≈${formatFileSize(oneHour)}`;
+            }
+        }
+
+        // ---------- 确保最终分片不是图片 ----------
+        let finalSeg = null;
+        for (let i = segCandidates.length - 1; i >= 0; i--) {
+            const cand = segCandidates[i];
+            if (cand.duration && !isImage(cand.uri)) { finalSeg = cand.uri; break; }
+        }
+        // 如果没找到含 duration 的非图片，退回最后一个非图片 URI
+        if (!finalSeg) {
+            for (let i = segCandidates.length - 1; i >= 0; i--) {
+                if (!isImage(segCandidates[i].uri)) { finalSeg = segCandidates[i].uri; break; }
+            }
+        }
+        // 如果全是图片（极端），仍退回最后一个 URI（保底）
+        if (!finalSeg) finalSeg = segCandidates[segCandidates.length - 1].uri;
+
+
+        for (let i = segCandidates.length - 1; i >= 0; i--) {
+            if (segCandidates[i].duration) { finalSeg = segCandidates[i].uri; break; }
+        }
+        if (!finalSeg) finalSeg = segCandidates[segCandidates.length - 1].uri;
+
+        return { segmentUrl: finalSeg, info, estimatedBytes, estimatedSize, errors };
+    } catch (e) {
+        errors.push(e.message);
+        return { segmentUrl: null, info: null, estimatedBytes: null, estimatedSize: null, errors };
     }
-
-    // 3) LL-HLS：优先拿最后一个 PART（更“最新”）
-    if (preferPart && /#EXT-X-PART:/i.test(text)) {
-        const partUris = [];
-        text.replace(/#EXT-X-PART:[^\n\r]*?URI="([^"]+)"/gi, (_, u) => {
-            partUris.push(resolveUrl(u, m3u8Url));
-            return '';
-        });
-        if (partUris.length) return partUris[partUris.length - 1];
-
-        // 可选：预取提示（有些源能直拉，有些不行，保守起见不默认返回）
-        const hint = text.match(/#EXT-X-PRELOAD-HINT:[^\n\r]*TYPE=PART[^\n\r]*URI="([^"]+)"/i);
-        if (hint) return resolveUrl(hint[1], m3u8Url);
-    }
-
-    // 4) 常规 HLS：找最后一个完整分片（优先跟随 #EXTINF）
-    const lines = text.split(/\r?\n/);
-    const segs = [];
-    let afterExtInf = false;
-    for (const raw of lines) {
-        const line = raw.trim();
-        if (!line) continue;
-
-        if (line.startsWith('#EXTINF')) {
-            afterExtInf = true;
-            continue;
-        }
-
-        if (afterExtInf && !line.startsWith('#')) {
-            // 典型：EXTINF 后紧跟分片 URI
-            segs.push(resolveUrl(line, m3u8Url));
-            afterExtInf = false;
-            continue;
-        }
-
-        afterExtInf = false;
-        // 兜底：非注释行里挑能识别的媒体分片
-        if (isMediaFile(line)) {
-            segs.push(resolveUrl(line, m3u8Url));
-        }
-    }
-
-    if (segs.length) return segs[segs.length - 1];
-
-    throw new Error('未找到可用分片（可能是加密或非标准清单）');
 }
+
+
 
 // 延迟测试函数 - 测试视频链接的延迟
 async function testVideoLatencyByid(vod_id, sourceCode) {
@@ -168,7 +486,15 @@ async function testVideoLatency(vod_play_url) {
             testUrl = vod_play_url; // 如果直接就是单个链接
         }
         if (!testUrl) return { latency: null, status: 'no_url' };
-        const segUrl = await getLatestSegmentUrl(testUrl);
+        const videoUrlInfo = await getLatestSegmentUrl(testUrl, { 'proxyPrefix': PROXY_URL });
+        if (videoUrlInfo.segmentUrl) {
+            console.log('片段:', videoUrlInfo.segmentUrl);
+            console.log('信息:', videoUrlInfo.info);
+            console.log('估算大小:', videoUrlInfo.estimatedSize);
+        } else {
+            console.error('失败：', videoUrlInfo.errors);
+        }
+        const segUrl = videoUrlInfo.segmentUrl;
 
         // 测试3次取平均值
         const attempts = 1;
@@ -187,10 +513,10 @@ async function testVideoLatency(vod_play_url) {
 
         if (latencies.length > 0) {
             const avgLatency = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
-            return { latency: avgLatency, status: 'success' };
+            return { latency: avgLatency, status: 'success', videoUrlInfo: videoUrlInfo };
         }
         if (nonOkCount > 0) return { latency: null, status: 'unavailable' };
-        return { latency: null, status: 'timeout' };
+        return { latency: null, status: 'timeout', videoUrlInfo: videoUrlInfo };
 
     } catch (error) {
         console.warn('延迟测试失败:', error);
@@ -256,7 +582,25 @@ function formatLatencyDisplay(latencyData) {
         colorClass = 'text-yellow-400';
     }
 
-    return `<span class="${colorClass} text-xs">${latency}ms</span>`;
+    // 检查是否有videoUrlInfo，如果没有有效信息就只显示延迟
+    if (!latencyData.videoUrlInfo || !latencyData.videoUrlInfo.info) {
+        return `<span class="${colorClass} text-xs font-medium">${latency}ms</span>`;
+    }
+
+    const info = latencyData.videoUrlInfo.info;
+    const estimatedSize = latencyData.videoUrlInfo.estimatedSize;
+    
+    // 构建完整的视频信息显示
+    let videoInfoHtml = '';
+    
+    // 分辨率标签
+    if (info.resolutionLabel) {
+        videoInfoHtml +=  `<span class="${colorClass} text-xs py-0.5 px-1.5  mr-1 rounded font-medium">${info.resolutionLabel}</span>`;
+    }
+    // 延迟信息
+    videoInfoHtml += `<span class="${colorClass} text-xs font-medium">${latency}ms</span>`;
+    
+    return videoInfoHtml;
 }
 
 // 页面初始化
@@ -1207,6 +1551,9 @@ async function search() {
                     `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-purple-500 text-purple-300">
                                           ${item.vod_year}
                                       </span>` : ''}
+                                    <div class="video-info-tags" data-key="${key}">
+                                        <!-- 这里将通过异步更新显示 resolutionLabel 和 estimatedSize -->
+                                    </div>
                                 </div>
                                 <p class="text-gray-400 line-clamp-2 overflow-hidden ${hasCover ? '' : 'text-center'} mb-2">
                                     ${(item.vod_remarks || '暂无介绍').toString().replace(/</g, '&lt;')}
@@ -1215,8 +1562,14 @@ async function search() {
                             
                             <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
                                 ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
-                                <div class="latency-display" data-key="${key}">
-                                    ${(typeof item.__latency !== 'undefined' || item.__latencyStatus) ? formatLatencyDisplay({ latency: item.__latency, status: item.__latencyStatus }) : '<span class="text-gray-400 text-xs">测试中...</span>'}
+                                <div class="flex items-center gap-2">
+                                    ${(item.__videoUrlInfo && item.__videoUrlInfo.info && item.__videoUrlInfo.info.totalDurationFormatted) ?
+                    `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-emerald-500 text-emerald-300">
+                                          ${item.__videoUrlInfo.info.totalDurationFormatted}
+                                      </span>` : ''}
+                                    <div class="latency-display" data-key="${key}">
+                                        ${(typeof item.__latency !== 'undefined' || item.__latencyStatus) ? formatLatencyDisplay({ latency: item.__latency, status: item.__latencyStatus, videoUrlInfo: item.__videoUrlInfo }) : '<span class="text-gray-400 text-xs">测试中...</span>'}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1246,14 +1599,30 @@ async function search() {
             try {
                 // const result = await testVideoLatency(item.vod_play_url);
                 const result = await testVideoLatencyByid(item.vod_id, item.source_code);
+                console.log(result)
                 item.__latency = result.latency || null;
                 item.__latencyStatus = result.status || (result.latency ? 'success' : 'unknown');
+                item.__videoUrlInfo = result.videoUrlInfo || null;
                 const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
                 const sourceCode = item.source_code || '';
                 const key = (safeId || '') + '_' + sourceCode;
+                // 更新延迟显示
                 const latencyElement = document.querySelector(`.latency-display[data-key="${key}"]`);
                 if (latencyElement) {
                     latencyElement.innerHTML = formatLatencyDisplay(result);
+                }
+                
+                // 更新视频信息标签（分辨率和文件大小）
+                const videoInfoTagsElement = document.querySelector(`.video-info-tags[data-key="${key}"]`);
+                if (videoInfoTagsElement && result.videoUrlInfo && result.videoUrlInfo.info) {
+                    let tagsHtml = '';
+                    if (result.videoUrlInfo.info.totalDurationFormatted) {
+                        tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-blue-500 text-blue-300 mr-1">${result.videoUrlInfo.info.totalDurationFormatted}</span>`;
+                    }
+                    if (result.videoUrlInfo.estimatedSize) {
+                        tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-indigo-500 text-indigo-300">${result.videoUrlInfo.estimatedSize}</span>`;
+                    }
+                    videoInfoTagsElement.innerHTML = tagsHtml;
                 }
                 const card = document.querySelector(`.card-hover[data-key="${key}"]`);
                 if (card) {
@@ -1270,9 +1639,16 @@ async function search() {
                 const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
                 const sourceCode = item.source_code || '';
                 const key = (safeId || '') + '_' + sourceCode;
+                // 更新延迟显示为错误状态
                 const latencyElement = document.querySelector(`.latency-display[data-key="${key}"]`);
                 if (latencyElement) {
                     latencyElement.innerHTML = '<span class="text-red-400 text-xs">测试失败</span>';
+                }
+                
+                // 清空视频信息标签
+                const videoInfoTagsElement = document.querySelector(`.video-info-tags[data-key="${key}"]`);
+                if (videoInfoTagsElement) {
+                    videoInfoTagsElement.innerHTML = '';
                 }
                 const card = document.querySelector(`.card-hover[data-key="${key}"]`);
                 if (card) {

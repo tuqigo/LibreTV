@@ -5,7 +5,7 @@ const AUTH_CONFIG = {
     API_BASE_URL: '/proxy/api',
     TOKEN_KEY: 'libretv_jwt_token',
     USER_KEY: 'libretv_user_info',
-    TOKEN_REFRESH_INTERVAL: 5 * 60 * 1000, // 5分钟检查一次令牌
+    TOKEN_REFRESH_INTERVAL: 4 * 60 * 1000, // 5分钟检查一次令牌
 };
 
 // 全局状态
@@ -110,8 +110,7 @@ const authStorage = {
 
     clear() {
         try {
-            localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
-            localStorage.removeItem(AUTH_CONFIG.USER_KEY);
+            localStorage.clear()
             isAuthenticated = false;
             currentUser = null;
         } catch (error) {
