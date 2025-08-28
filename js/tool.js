@@ -1,6 +1,6 @@
 async function syncConfig(needShowToast = false) {
     const key = 'viewingHistory';
-    
+
     // 检查JWT认证状态
     if (!window.AuthSystem || !window.AuthSystem.isUserAuthenticated()) {
         if (needShowToast) {
@@ -8,28 +8,28 @@ async function syncConfig(needShowToast = false) {
         }
         return;
     }
-    
+
     const user = window.AuthSystem.getCurrentUser();
     const token = window.AuthSystem.getStoredToken();
-    
+
     if (!user || !token) {
         if (needShowToast) {
             showToast(`认证信息无效，请重新登录！`, 'warning');
         }
         return;
     }
-    
+
 
     // 1. 拉取远程配置
     let remoteList = [];
     try {
         const res = await fetch(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
             headers: {
-                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
-            }
+            },
+            credentials: 'include'
         });
-        
+
         if (res.status === 404) {
             // 新用户，没有远程数据
             remoteList = [];
@@ -105,10 +105,10 @@ async function syncConfig(needShowToast = false) {
             await fetch(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(merged),
+                credentials: 'include'
             });
         }
     } catch (e) {
