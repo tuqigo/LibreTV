@@ -487,15 +487,14 @@ async function testVideoLatency(vod_play_url) {
         }
         if (!testUrl) return { latency: null, status: 'no_url' };
         const videoUrlInfo = await getLatestSegmentUrl(testUrl, { 'proxyPrefix': PROXY_URL });
-        if (videoUrlInfo.segmentUrl) {
-            console.log('片段:', videoUrlInfo.segmentUrl);
-            console.log('信息:', videoUrlInfo.info);
-            console.log('估算大小:', videoUrlInfo.estimatedSize);
-        } else {
-            console.error('失败：', videoUrlInfo.errors);
-        }
+        // if (videoUrlInfo.segmentUrl) {
+        //     console.log('片段:', videoUrlInfo.segmentUrl);
+        //     console.log('信息:', videoUrlInfo.info);
+        //     console.log('估算大小:', videoUrlInfo.estimatedSize);
+        // } else {
+        //     console.error('失败：', videoUrlInfo.errors);
+        // }
         const segUrl = videoUrlInfo.segmentUrl;
-
         // 测试3次取平均值
         const attempts = 1;
         const latencies = [];
@@ -587,15 +586,14 @@ function formatLatencyDisplay(latencyData) {
         return `<span class="${colorClass} text-xs font-medium">${latency}ms</span>`;
     }
 
-    const info = latencyData.videoUrlInfo.info;
-    const estimatedSize = latencyData.videoUrlInfo.estimatedSize;
+    const info = latencyData.videoUrlInfo.info;    
     
     // 构建完整的视频信息显示
     let videoInfoHtml = '';
     
-    // 分辨率标签
-    if (info.resolutionLabel) {
-        videoInfoHtml +=  `<span class="${colorClass} text-xs py-0.5 px-1.5  mr-1 rounded font-medium">${info.resolutionLabel}</span>`;
+    // 时长显示
+    if (info.totalDurationFormatted) {
+        videoInfoHtml +=  `<span class="${colorClass} text-xs py-0.5 px-1.5  mr-1 rounded font-medium">${info.totalDurationFormatted}</span>`;
     }
     // 延迟信息
     videoInfoHtml += `<span class="${colorClass} text-xs font-medium">${latency}ms</span>`;
@@ -1555,21 +1553,12 @@ async function search() {
                                         <!-- 这里将通过异步更新显示 resolutionLabel 和 estimatedSize -->
                                     </div>
                                 </div>
-                                <p class="text-gray-400 line-clamp-2 overflow-hidden ${hasCover ? '' : 'text-center'} mb-2">
-                                    ${(item.vod_remarks || '暂无介绍').toString().replace(/</g, '&lt;')}
-                                </p>
                             </div>
                             
                             <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
                                 ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
-                                <div class="flex items-center gap-2">
-                                    ${(item.__videoUrlInfo && item.__videoUrlInfo.info && item.__videoUrlInfo.info.totalDurationFormatted) ?
-                    `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-emerald-500 text-emerald-300">
-                                          ${item.__videoUrlInfo.info.totalDurationFormatted}
-                                      </span>` : ''}
-                                    <div class="latency-display" data-key="${key}">
-                                        ${(typeof item.__latency !== 'undefined' || item.__latencyStatus) ? formatLatencyDisplay({ latency: item.__latency, status: item.__latencyStatus, videoUrlInfo: item.__videoUrlInfo }) : '<span class="text-gray-400 text-xs">测试中...</span>'}
-                                    </div>
+                                <div class="latency-display" data-key="${key}">
+                                    ${(typeof item.__latency !== 'undefined' || item.__latencyStatus) ? formatLatencyDisplay({ latency: item.__latency, status: item.__latencyStatus }) : '<span class="text-gray-400 text-xs">测试中...</span>'}
                                 </div>
                             </div>
                         </div>
@@ -1599,7 +1588,7 @@ async function search() {
             try {
                 // const result = await testVideoLatency(item.vod_play_url);
                 const result = await testVideoLatencyByid(item.vod_id, item.source_code);
-                console.log(result)
+                // console.log(result)
                 item.__latency = result.latency || null;
                 item.__latencyStatus = result.status || (result.latency ? 'success' : 'unknown');
                 item.__videoUrlInfo = result.videoUrlInfo || null;
@@ -1616,8 +1605,8 @@ async function search() {
                 const videoInfoTagsElement = document.querySelector(`.video-info-tags[data-key="${key}"]`);
                 if (videoInfoTagsElement && result.videoUrlInfo && result.videoUrlInfo.info) {
                     let tagsHtml = '';
-                    if (result.videoUrlInfo.info.totalDurationFormatted) {
-                        tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-blue-500 text-blue-300 mr-1">${result.videoUrlInfo.info.totalDurationFormatted}</span>`;
+                    if (result.videoUrlInfo.info.resolutionLabel) {
+                        tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-blue-500 text-blue-300 mr-1">${result.videoUrlInfo.info.resolutionLabel}</span>`;
                     }
                     if (result.videoUrlInfo.estimatedSize) {
                         tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-indigo-500 text-indigo-300">${result.videoUrlInfo.estimatedSize}</span>`;
