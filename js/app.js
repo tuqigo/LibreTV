@@ -1337,11 +1337,7 @@ function resetSearchArea() {
     document.getElementById('searchArea').classList.remove('mb-8');
     document.getElementById('resultsArea').classList.add('hidden');
 
-    // 确保页脚正确显示，移除相对定位
-    const footer = document.querySelector('.footer');
-    if (footer) {
-        footer.style.position = '';
-    }
+
 
     // 如果有豆瓣功能，检查是否需要显示豆瓣推荐区域
     if (typeof updateDoubanVisibility === 'function') {

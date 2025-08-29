@@ -169,17 +169,7 @@ button, .card-hover {
     border-color: var(--primary-color);
 }
 
-.footer {
-    width: 100%;
-    transition: all 0.3s ease;
-    margin-top: auto;
-    background: linear-gradient(to bottom, transparent, var(--page-gradient-start));
-    border-top: 1px solid var(--border-color);
-}
 
-.footer a:hover {
-    text-decoration: underline;
-}
 
 body {
     display: flex;
@@ -202,16 +192,10 @@ body {
         flex: 1;
     }
     
-    .footer {
-        margin-top: auto;
-    }
+
 }
 
-@media screen and (max-width: 640px) {
-    .footer {
-        padding-bottom: 2rem;
-    }
-}
+
 
 /* 移动端布局优化 */
 @media screen and (max-width: 768px) {

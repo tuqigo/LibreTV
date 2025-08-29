@@ -319,10 +319,10 @@ function initPlayer(videoUrl, sourceCode) {
         hotkey: true,        // 启用键盘控制，包括空格暂停/播放、方向键控制进度和音量
         mutex: true,
         volume: 0.7,
-        screenshot: true,                // 启用截图功能
+        screenshot: false,               // 禁用截图功能
         preventClickToggle: false,       // 允许点击视频切换播放/暂停
-        airplay: true,                   // 在Safari中启用AirPlay功能
-        chromecast: true,                // 启用Chromecast投屏功能
+        airplay: false,                  // 禁用AirPlay功能
+        chromecast: false,               // 禁用Chromecast投屏功能
         contextmenu: [                   // 自定义右键菜单
             {
                 text: '关于 LibreTV',
@@ -382,11 +382,11 @@ function initPlayer(videoUrl, sourceCode) {
                     hls.loadSource(video.src);
                     hls.attachMedia(video);
 
-                    // enable airplay, from https://github.com/video-dev/hls.js/issues/5989
-                    const source = document.createElement('source');
-                    source.src = videoUrl;
-                    video.appendChild(source);
-                    video.disableRemotePlayback = false;
+                    // 移除 airplay 相关代码，因为已在 DPlayer 配置中禁用
+                    // const source = document.createElement('source');
+                    // source.src = videoUrl;
+                    // video.appendChild(source);
+                    // video.disableRemotePlayback = false;
 
                     hls.on(Hls.Events.MANIFEST_PARSED, function () {
                         video.play().catch(e => {
@@ -588,24 +588,24 @@ function initPlayer(videoUrl, sourceCode) {
         // 视频已播放完，清除播放进度记录
         clearVideoProgress();
 
-            // 如果启用了自动连播，并且有下一集可播放，则自动播放下一集
-    if (autoplayEnabled && currentEpisodes.length > 1 && currentEpisodeIndex < currentEpisodes.length - 1) {
-        console.log('视频播放结束，自动播放下一集');
-        // 稍长延迟以确保所有事件处理完成
-        setTimeout(() => {
-            // 确认不是因为用户拖拽导致的假结束事件
-            if (videoHasEnded && !isUserSeeking) {
-                playNextEpisode();
-                videoHasEnded = false; // 重置标志
-            }
-        }, 1000);
-    } else {
-        if (currentEpisodes.length <= 1) {
-            console.log('视频播放结束，单集视频无需自动连播');
+        // 如果启用了自动连播，并且有下一集可播放，则自动播放下一集
+        if (autoplayEnabled && currentEpisodes.length > 1 && currentEpisodeIndex < currentEpisodes.length - 1) {
+            console.log('视频播放结束，自动播放下一集');
+            // 稍长延迟以确保所有事件处理完成
+            setTimeout(() => {
+                // 确认不是因为用户拖拽导致的假结束事件
+                if (videoHasEnded && !isUserSeeking) {
+                    playNextEpisode();
+                    videoHasEnded = false; // 重置标志
+                }
+            }, 1000);
         } else {
-            console.log('视频播放结束，无下一集或未启用自动连播');
+            if (currentEpisodes.length <= 1) {
+                console.log('视频播放结束，单集视频无需自动连播');
+            } else {
+                console.log('视频播放结束，无下一集或未启用自动连播');
+            }
         }
-    }
     });
 
     // 添加事件监听以检测近视频末尾的点击拖动
@@ -765,7 +765,7 @@ function updateButtonStates() {
 // 控制单集视频时的UI显示
 function toggleSingleEpisodeUI() {
     const isSingleEpisode = currentEpisodes.length <= 1;
-    
+
     // 获取需要控制的元素
     const autoplayToggle = document.getElementById('autoplayToggle');
     const episodesToggle = document.getElementById('episodesToggle');
@@ -773,7 +773,9 @@ function toggleSingleEpisodeUI() {
     const episodesGrid = document.getElementById('episodesGrid');
     const prevButton = document.getElementById('prevButton');
     const nextButton = document.getElementById('nextButton');
-    
+    const lockToggle = document.getElementById('lockToggle');
+    const playPauseButton = document.getElementById('playPauseButton');
+
     if (isSingleEpisode) {
         // 单集视频：隐藏相关元素
         if (autoplayToggle) autoplayToggle.style.display = 'none';
@@ -782,7 +784,9 @@ function toggleSingleEpisodeUI() {
         if (episodesGrid) episodesGrid.style.display = 'none';
         if (prevButton) prevButton.style.display = 'none';
         if (nextButton) nextButton.style.display = 'none';
-        
+        if (lockToggle) lockToggle.style.display = 'none';
+        if (playPauseButton) playPauseButton.style.display = 'none';
+
         console.log('单集视频，已隐藏剧集相关UI元素');
     } else {
         // 多集视频：显示所有元素
@@ -792,7 +796,7 @@ function toggleSingleEpisodeUI() {
         if (episodesGrid) episodesGrid.style.display = '';
         if (prevButton) prevButton.style.display = '';
         if (nextButton) nextButton.style.display = '';
-        
+
         console.log('多集视频，已显示所有UI元素');
     }
 }
@@ -907,7 +911,7 @@ function playEpisode(index) {
     updateEpisodeInfo();
     updateButtonStates();
     renderEpisodes();
-    
+
     // 控制单集视频时的UI显示
     toggleSingleEpisodeUI();
 
@@ -935,7 +939,7 @@ function playNextEpisode() {
 // 暂停/播放切换
 function togglePlayPause() {
     if (!dp || !dp.video) return;
-    
+
     if (dp.video.paused) {
         dp.play();
         updatePlayPauseIcon(false); // false表示正在播放
@@ -949,7 +953,7 @@ function togglePlayPause() {
 function updatePlayPauseIcon(isPaused) {
     const playPauseIcon = document.getElementById('playPauseIcon');
     if (!playPauseIcon) return;
-    
+
     if (isPaused) {
         // 显示播放图标（三角形）
         playPauseIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3l14 9-14 9V3z"></path>';
@@ -1498,11 +1502,11 @@ function updateAutoplayButton() {
 function toggleEpisodesGrid() {
     const episodesGrid = document.getElementById('episodesGrid');
     const episodesToggle = document.getElementById('episodesToggle');
-    
+
     if (episodesGrid && episodesToggle) {
         const isVisible = !episodesGrid.classList.contains('hidden');
         episodesGrid.classList.toggle('hidden');
-        
+
         // 更新按钮状态和内存变量
         if (!isVisible) {
             episodesToggle.classList.add('active');
@@ -1520,7 +1524,7 @@ function toggleEpisodesGrid() {
 function updateEpisodesToggleButton(isVisible) {
     const episodesGrid = document.getElementById('episodesGrid');
     const episodesToggle = document.getElementById('episodesToggle');
-    
+
     if (episodesGrid && episodesToggle) {
         if (isVisible) {
             episodesGrid.classList.remove('hidden');
