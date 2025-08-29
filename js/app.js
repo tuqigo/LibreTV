@@ -1,5 +1,5 @@
 // 全局变量
-let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["tyyszy","dyttzy", "bfzy", "ruyi"]'); // 默认选中天涯资源、暴风资源和如意资源
+let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["tyyszy","dyttzy", "mozhua", "wolong"]'); // 默认选中的
 let customAPIs = JSON.parse(localStorage.getItem('customAPIs') || '[]'); // 存储自定义API列表
 
 // 添加当前播放的集数索引
@@ -167,9 +167,22 @@ async function getLatestSegmentUrl(m3u8Url, {
 
     const formatFileSize = (bytes) => {
         if (bytes == null) return null;
-        if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(2) + ' GB';
-        if (bytes >= 1024 ** 2) return (bytes / 1024 ** 2).toFixed(2) + ' MB';
-        if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+
+        if (bytes >= 1024 ** 3) {
+            const gb = bytes / (1024 ** 3);
+            return gb % 1 === 0 ? `${gb} GB` : `${gb.toFixed(2)} GB`;
+        }
+
+        if (bytes >= 1024 ** 2) {
+            const mb = bytes / (1024 ** 2);
+            return `${Math.round(mb)} MB`;
+        }
+
+        if (bytes >= 1024) {
+            const kb = bytes / 1024;
+            return `${Math.round(kb)} KB`;
+        }
+
         return `${bytes} B`;
     };
 
@@ -586,18 +599,18 @@ function formatLatencyDisplay(latencyData) {
         return `<span class="${colorClass} text-xs font-medium">${latency}ms</span>`;
     }
 
-    const info = latencyData.videoUrlInfo.info;    
-    
+    const info = latencyData.videoUrlInfo.info;
+
     // 构建完整的视频信息显示
     let videoInfoHtml = '';
-    
+
     // 时长显示
-    if (info.totalDurationFormatted) {
-        videoInfoHtml +=  `<span class="${colorClass} text-xs py-0.5 px-1.5  mr-1 rounded font-medium">${info.totalDurationFormatted}</span>`;
-    }
+    // if (info.totalDurationFormatted) {
+    //     videoInfoHtml += `<span class="${colorClass} text-xs py-0.5 px-1.5  mr-1 rounded font-medium">${info.totalDurationFormatted}</span>`;
+    // }
     // 延迟信息
     videoInfoHtml += `<span class="${colorClass} text-xs font-medium">${latency}ms</span>`;
-    
+
     return videoInfoHtml;
 }
 
@@ -1549,9 +1562,10 @@ async function search() {
                     `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-purple-500 text-purple-300">
                                           ${item.vod_year}
                                       </span>` : ''}
-                                    <div class="video-info-tags" data-key="${key}">
+                                    
+                                </div>
+                                <div class="video-info-tags" data-key="${key}">
                                         <!-- 这里将通过异步更新显示 resolutionLabel 和 estimatedSize -->
-                                    </div>
                                 </div>
                             </div>
                             
@@ -1600,7 +1614,7 @@ async function search() {
                 if (latencyElement) {
                     latencyElement.innerHTML = formatLatencyDisplay(result);
                 }
-                
+
                 // 更新视频信息标签（分辨率和文件大小）
                 const videoInfoTagsElement = document.querySelector(`.video-info-tags[data-key="${key}"]`);
                 if (videoInfoTagsElement && result.videoUrlInfo && result.videoUrlInfo.info) {
@@ -1610,6 +1624,9 @@ async function search() {
                     }
                     if (result.videoUrlInfo.estimatedSize) {
                         tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-indigo-500 text-indigo-300">${result.videoUrlInfo.estimatedSize}</span>`;
+                    }
+                     if (result.videoUrlInfo.info.totalDurationFormatted) {
+                        tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-indigo-500 text-indigo-300">${result.videoUrlInfo.info.totalDurationFormatted}</span>`;
                     }
                     videoInfoTagsElement.innerHTML = tagsHtml;
                 }
@@ -1633,7 +1650,7 @@ async function search() {
                 if (latencyElement) {
                     latencyElement.innerHTML = '<span class="text-red-400 text-xs">测试失败</span>';
                 }
-                
+
                 // 清空视频信息标签
                 const videoInfoTagsElement = document.querySelector(`.video-info-tags[data-key="${key}"]`);
                 if (videoInfoTagsElement) {
