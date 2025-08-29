@@ -21,11 +21,22 @@ const SITE_CONFIG = {
 
 // API站点配置
 const API_SITES = {
-    // heimuer: {
-    //     api: 'https://json.heimuer.xyz',
-    //     name: '黑木耳',
-    //     detail: 'https://heimuer.tv',
-    // },
+    mozhua: {
+        api: 'https://mozhuazy.com',
+        name: '魔爪资源',
+    },
+    mdzy: {
+        api: 'https://www.mdzyapi.com',
+        name: '魔都资源',
+    },
+    xinlang: {
+        api: 'https://api.xinlangapi.com/xinlangapi.php/provide/vod',
+        name: '新浪资源',
+    },
+    wolong: {
+        api: 'https://wolongzyw.com',
+        name: '卧龙资源',
+    },
     dyttzy: {
         api: 'http://caiji.dyttzyapi.com',
         name: '电影天堂资源',
@@ -60,10 +71,6 @@ const API_SITES = {
     //     api: 'https://www.iqiyizyapi.com',
     //     name: 'iqiyi资源',
     // },
-    wolong: {
-        api: 'https://wolongzyw.com',
-        name: '卧龙资源',
-    },
     hwba: {
         api: 'https://cjhwba.com',
         name: '华为吧资源',
@@ -82,21 +89,10 @@ const API_SITES = {
     //     name: '虎牙资源',
     //     detail: 'https://www.huyaapi.com',
     // },
-    mozhua: {
-        api: 'https://mozhuazy.com',
-        name: '魔爪资源',
-    },
-    mdzy: {
-        api: 'https://www.mdzyapi.com',
-        name: '魔都资源',
-    },
+
     lzi: {
         api: 'https://cj.lziapi.com',
         name: '量子资源',
-    },
-    xinlang: {
-        api: 'https://api.xinlangapi.com/xinlangapi.php/provide/vod',
-        name: '新浪资源',
     },
     p2100: {
         api: 'https://p2100.net',

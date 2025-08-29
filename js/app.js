@@ -1,5 +1,5 @@
 // 全局变量
-let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["mozhua", "wolong","xinlang"]'); // 默认选中的
+let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["mozhua", "wolong","xinlang","mdzy"]'); // 默认选中的
 let customAPIs = JSON.parse(localStorage.getItem('customAPIs') || '[]'); // 存储自定义API列表
 
 // 添加当前播放的集数索引
