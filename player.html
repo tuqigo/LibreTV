@@ -60,77 +60,90 @@
             </div>
         </div>
 
-        <!-- 集数导航 -->
-        <div class="player-container">
-            <div class="flex justify-between items-center my-4">
-                <button onclick="playPreviousEpisode()" id="prevButton"
-                    class="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors">
-                    <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
-                        </path>
-                    </svg>
-                    上一集
-                </button>
-                <span class="text-gray-400" id="episodeInfo">加载中...</span>
-                <button onclick="playNextEpisode()" id="nextButton"
-                    class="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors">
-                    下一集
-                    <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
+        <!-- 减少间距 -->
+        <div class="player-spacing-small"></div>
 
-        <!-- 添加自动播放开关和排序按钮 -->
+        <!-- 添加自动播放开关、播放控制按钮和功能按钮 -->
         <div class="player-container mb-2">
-            <div class="flex flex-wrap justify-end items-center gap-2">
-                <!-- 自动连播开关 - 分组到左边 -->
-                <div class="flex items-center gap-1 flex-shrink-0 mr-auto">
-                    <span class="text-gray-400 text-sm whitespace-nowrap">自动连播</span>
-                    <label class="switch">
-                        <input type="checkbox" id="autoplayToggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
+            <div class="flex items-center justify-between relative button-layout">
+                <!-- 左侧按钮组：自动连播、集数切换、倒序排列 -->
+                <div class="flex items-center gap-2 left-buttons">
+                    <!-- 自动连播开关 -->
+                    <button id="autoplayToggle" onclick="toggleAutoplay()"
+                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
+                        title="自动连播">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                    </button>
 
-                <!-- 把各种功能按钮放在右侧 - 在小屏幕上各自占一行 -->
-                <div class="flex flex-wrap justify-end gap-2">
+                    <!-- 集数网格切换按钮 -->
+                    <button id="episodesToggle" onclick="toggleEpisodesGrid()"
+                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
+                        title="显示/隐藏集数">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                        </svg>
+                    </button>
+
                     <!-- 倒序排列按钮 -->
                     <button onclick="toggleEpisodeOrder()"
-                        class="px-3 py-1 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center space-x-1 flex-shrink-0">
+                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
+                        title="集数排序" id="orderButton">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" id="orderIcon" viewBox="0 0 20 20"
                             fill="currentColor">
-                            <path fill-rule="evenodd"
+                            <!-- 默认状态：向上箭头（正序） -->
+                            <path fill-rule="evenodd" id="orderIconUp"
                                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z"
                                 clip-rule="evenodd" />
+                            <!-- 倒序状态：向下箭头 -->
+                            <path fill-rule="evenodd" id="orderIconDown" style="display: none;"
+                                d="M10 2a8 8 0 100 16 8 8 0 000-16zm-1 9a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1zm1-3a1 1 0 100 2h2a1 1 0 100-2h-2z"
+                                clip-rule="evenodd" />
                         </svg>
-                        <span id="orderText">倒序排列</span>
+                    </button>
+                </div>
+
+                <!-- 中间播放控制按钮组 -->
+                <div class="flex items-center gap-2 center-buttons">
+                    <!-- 上一集按钮 -->
+                    <button onclick="playPreviousEpisode()" id="prevButton"
+                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
+                        title="上一集">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                            </path>
+                        </svg>
                     </button>
 
-                    <!-- 复制链接按钮 -->
-                    <button title="复制播放链接" onclick="copyLinks()"
-                        class="px-2 py-1 bg-[#222] hover:bg-[#333] border border-[#333] text-white rounded-lg transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
+                    <!-- 暂停/播放按钮 -->
+                    <button onclick="togglePlayPause()" id="playPauseButton"
+                        class="p-2 bg-[#00ccff] hover:bg-[#00aacc] border border-[#00ccff] rounded-lg transition-colors flex items-center justify-center"
+                        title="暂停/播放">
+                        <svg id="playPauseIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"></path>
                         </svg>
                     </button>
 
-                    <!-- 缓存状态按钮 -->
-                    <button id="cacheStatusBtn" title="缓存状态" onclick="toggleCacheStatusPanel()"
-                        class="px-2 py-1 bg-[#222] hover:bg-[#333] border border-[#333] text-white rounded-lg transition flex-shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 6v6l4 2"></path>
+                    <!-- 下一集按钮 -->
+                    <button onclick="playNextEpisode()" id="nextButton"
+                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
+                        title="下一集">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
+                            </path>
                         </svg>
                     </button>
+                </div>
 
-                    <!-- 锁定控制按钮 - 始终显示在最右侧 -->
+                <!-- 右侧功能按钮组 -->
+                <div class="flex items-center gap-2 right-buttons">
+                    <!-- 锁定控制按钮 -->
                     <button id="lockToggle" onclick="toggleControlsLock()" title="锁定控制"
-                        class="px-2 py-1 bg-[#222] hover:bg-[#333] border border-[#333] text-white rounded-lg transition flex-shrink-0">
+                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] text-white rounded-lg transition-colors flex items-center justify-center">
                         <svg id="lockIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <!-- 默认状态：未锁图标 -->
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -164,10 +177,11 @@
                 </div>
             </div>
         </div>
-
-        <!-- 集数网格 -->
-        <div class="player-container">
-            <div class="episode-grid" id="episodesGrid">
+        <!-- 减少间距 -->
+        <div class="player-spacing-small"></div>
+        <!-- 集数网格 - 默认隐藏 -->
+        <div class="player-container hidden" id="episodesGrid">
+            <div class="episode-grid">
                 <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2" id="episodesList">
                     <!-- 集数将在这里动态加载 -->
                     <div class="col-span-full text-center text-gray-400 py-8">加载中...</div>
@@ -185,13 +199,15 @@
     </div>
 
     <!-- 页脚区域 -->
-    <!-- <footer class="footer mt-2 py-6 border-t border-[#333] bg-[#0a0a0a]">
+    <footer class="footer mt-2 py-6 border-t border-[#333] bg-[#0a0a0a]">
         <div class="container mx-auto px-4">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="mb-4 md:mb-0">
                     <div class="flex items-center justify-center md:justify-start">
                         <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                            </path>
                         </svg>
                         <span class="gradient-text font-bold">LibreTV</span>
                     </div>
@@ -206,16 +222,17 @@
                     <div class="mt-2 flex justify-center md:justify-end space-x-4">
                         <a href="about.html" class="text-gray-400 hover:text-white text-sm transition-colors">关于我们</a>
                         <a href="privacy.html" class="text-gray-400 hover:text-white text-sm transition-colors">隐私政策</a>
-                        <a href="https://help.unicef.org/#donation-form" target="_blank" rel="noopener" class="text-blue-400 hover:text-blue-300 text-sm transition-colors">捐赠</a>
+                        <a href="https://help.unicef.org/#donation-form" target="_blank" rel="noopener"
+                            class="text-blue-400 hover:text-blue-300 text-sm transition-colors">捐赠</a>
                     </div>
                 </div>
             </div>
         </div>
-    </footer>-->
+    </footer>
 
     <!-- 引入认证系统 -->
     <script src="js/auth-system.js"></script>
-    
+
     <script src="libs/hls.min.js" crossorigin="anonymous"></script>
     <script src="libs/DPlayer.min.js" crossorigin="anonymous"></script>
 
@@ -224,7 +241,7 @@
     <script src="js/ui.js"></script>
     <script src="js/tool.js"></script>
     <script src="js/player.js"></script>
-    
+
     <script>
         // 回退功能
         function goBack() {
