@@ -19,31 +19,34 @@ main {
     flex: 1;
 }
 
+
 /* 集数网格样式 */
 .episode-grid {
-    height: 120px;
-    overflow-y: auto;
+    height: 80px;
+    overflow-x: auto;
+    overflow-y: hidden;
     padding: 1rem;
     border-radius: 0.5rem;
     background-color: #111;
     border: 1px solid #333;
     scrollbar-width: thin;
     scrollbar-color: #555 #222;
+    white-space: nowrap;
 }
 
 /* 自定义滚动条样式 */
 .episode-grid::-webkit-scrollbar {
-    width: 8px;
+    height: 6px;
 }
 
 .episode-grid::-webkit-scrollbar-track {
     background: #222;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 
 .episode-grid::-webkit-scrollbar-thumb {
     background: #555;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 
 .episode-grid::-webkit-scrollbar-thumb:hover {
@@ -58,11 +61,32 @@ main {
 /* 集数按钮样式优化 */
 .episode-btn {
     transition: all 0.2s ease;
+    min-width: 36px;
+    max-width: 36px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .episode-btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 集数列表容器 - 确保一行显示所有集数 */
+#episodesList {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    padding: 0;
+    min-width: max-content;
+    align-items: center;
 }
 
 /* 触摸设备优化 */
@@ -75,8 +99,21 @@ main {
     .player-container button:active {
         transform: scale(0.95);
     }
+    
+    /* 移动端集数按钮稍微小一点 */
+    .episode-btn {
+        min-width: 32px;
+        max-width: 32px;
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
+    }
+    
+    .episode-grid {
+        height: 70px;
+        padding: 0.75rem;
+    }
 }
-
 
 
 .player-container {
@@ -87,7 +124,36 @@ main {
 
 #player {
     width: 100%;
-    height: 75vh;
+    /* 使用更合适的宽高比，避免视频被裁剪 */
+    aspect-ratio: 16 / 9;
+    max-height: 75vh;
+}
+
+/* 确保视频完全填充播放器容器，避免黑色条条 */
+#player video {
+    object-fit: contain;
+    width: 100%;
+    height: 100%;
+}
+
+/* 确保DPlayer容器内的视频元素也完全填充 */
+#player .dplayer-video-wrap video {
+    object-fit: contain;
+    width: 100%;
+    height: 100%;
+}
+
+/* 为播放器容器添加深色背景 */
+#player {
+    background-color: #000;
+}
+
+/* 移动端调整播放器高度，适应小屏幕 */
+@media (max-width: 768px) {
+    #player {
+        aspect-ratio: 16 / 9;
+        max-height: 60vh;
+    }
 }
 
 .loading-container {
@@ -244,14 +310,12 @@ input:checked+.slider:before {
 }
 
 /* 功能按钮激活状态 */
-#autoplayToggle.active,
 #episodesToggle.active {
     background-color: #00ccff !important;
     border-color: #00ccff !important;
     color: white;
 }
 
-#autoplayToggle.active:hover,
 #episodesToggle.active:hover {
     background-color: #00aacc !important;
 }

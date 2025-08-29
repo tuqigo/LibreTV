@@ -63,18 +63,8 @@
         <!-- 添加自动播放开关、播放控制按钮和功能按钮 -->
         <div class="player-container mb-2"  style="margin-top: 12px;">
             <div class="flex items-center justify-between relative button-layout">
-                <!-- 左侧按钮组：自动连播、集数切换、倒序排列 -->
+                <!-- 左侧按钮组：集数切换、倒序排列 -->
                 <div class="flex items-center gap-2 left-buttons">
-                    <!-- 自动连播开关 -->
-                    <button id="autoplayToggle" onclick="toggleAutoplay()"
-                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
-                        title="自动连播">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
-                    </button>
-
                     <!-- 集数网格切换按钮 -->
                     <button id="episodesToggle" onclick="toggleEpisodesGrid()"
                         class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
@@ -154,9 +144,9 @@
         <!-- 集数网格 - 默认隐藏 -->
         <div class="player-container hidden" id="episodesGrid"  style="margin-top: 12px;">
             <div class="episode-grid">
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2" id="episodesList">
+                <div id="episodesList">
                     <!-- 集数将在这里动态加载 -->
-                    <div class="col-span-full text-center text-gray-400 py-8">加载中...</div>
+                    <div class="text-center text-gray-400 py-8">加载中...</div>
                 </div>
             </div>
         </div>

@@ -814,28 +814,29 @@ body {
     object-fit: cover;
 }
 
-/* 针对搜索结果卡片修改网格布局以适应横向卡片 */
+/* 针对搜索结果卡片修改网格布局以适应横向卡片 手机*/
 @media (max-width: 640px) {
     #results {
         grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
     }
 }
 
-/* 响应式调整：在小屏幕上依然保持较好的视觉效果 */
+/* 响应式调整：在小屏幕上依然保持较好的视觉效果 ipad*/
 @media (min-width: 641px) and (max-width: 768px) {
     #results {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
 
-/* 调整网格布局，减少每行卡片数量以适应更大尺寸的卡片 */
-@media (min-width: 769px) and (max-width: 1024px) {
+/* 调整网格布局，减少每行卡片数量以适应更大尺寸的卡片 ipad pro*/
+@media (min-width: 769px) and (max-width: 1366px) {
     #results {
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
 }
 
-@media (min-width: 1025px) {
+/* 调整网格布局，减少每行卡片数量以适应更大尺寸的卡片 电脑*/
+@media (min-width: 1367px) {
     #results {
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     }

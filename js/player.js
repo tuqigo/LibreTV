@@ -16,8 +16,8 @@ let currentEpisodes = [];
 let episodesReversed = false;
 let dp = null;
 let currentHls = null; // 跟踪当前HLS实例
-let autoplayEnabled = true; // 默认开启自动连播
-let episodesGridVisible = false; // 默认隐藏集数网格
+// 自动连播功能已移除，默认始终为true
+let episodesGridVisible = true; // 默认显示集数网格
 let isUserSeeking = false; // 跟踪用户是否正在拖动进度条
 let videoHasEnded = false; // 跟踪视频是否已经自然结束
 let userClickedPosition = null; // 记录用户点击的位置
@@ -82,8 +82,7 @@ function initializePageContent() {
     currentVideoTitle = title || localStorage.getItem('currentVideoTitle') || '未知视频';
     currentEpisodeIndex = index;
 
-    // 使用内存中的默认值，不再从localStorage读取
-    updateAutoplayButton();
+    // 自动连播功能已移除，不再需要更新按钮状态
 
     // 获取广告过滤设置
     adFilteringEnabled = localStorage.getItem('adFilteringEnabled') !== 'false'; // 默认为true
@@ -588,8 +587,8 @@ function initPlayer(videoUrl, sourceCode) {
         // 视频已播放完，清除播放进度记录
         clearVideoProgress();
 
-        // 如果启用了自动连播，并且有下一集可播放，则自动播放下一集
-        if (autoplayEnabled && currentEpisodes.length > 1 && currentEpisodeIndex < currentEpisodes.length - 1) {
+        // 自动连播功能已移除，默认始终为true，如果有下一集可播放，则自动播放下一集
+        if (currentEpisodes.length > 1 && currentEpisodeIndex < currentEpisodes.length - 1) {
             console.log('视频播放结束，自动播放下一集');
             // 稍长延迟以确保所有事件处理完成
             setTimeout(() => {
@@ -603,7 +602,7 @@ function initPlayer(videoUrl, sourceCode) {
             if (currentEpisodes.length <= 1) {
                 console.log('视频播放结束，单集视频无需自动连播');
             } else {
-                console.log('视频播放结束，无下一集或未启用自动连播');
+                console.log('视频播放结束，无下一集可播放');
             }
         }
     });
@@ -767,7 +766,6 @@ function toggleSingleEpisodeUI() {
     const isSingleEpisode = currentEpisodes.length <= 1;
 
     // 获取需要控制的元素
-    const autoplayToggle = document.getElementById('autoplayToggle');
     const episodesToggle = document.getElementById('episodesToggle');
     const orderButton = document.querySelector('button[onclick="toggleEpisodeOrder()"]');
     const episodesGrid = document.getElementById('episodesGrid');
@@ -778,7 +776,6 @@ function toggleSingleEpisodeUI() {
 
     if (isSingleEpisode) {
         // 单集视频：隐藏相关元素
-        if (autoplayToggle) autoplayToggle.style.display = 'none';
         if (episodesToggle) episodesToggle.style.display = 'none';
         if (orderButton) orderButton.style.display = 'none';
         if (episodesGrid) episodesGrid.style.display = 'none';
@@ -790,7 +787,6 @@ function toggleSingleEpisodeUI() {
         console.log('单集视频，已隐藏剧集相关UI元素');
     } else {
         // 多集视频：显示所有元素
-        if (autoplayToggle) autoplayToggle.style.display = '';
         if (episodesToggle) episodesToggle.style.display = '';
         if (orderButton) orderButton.style.display = '';
         if (episodesGrid) episodesGrid.style.display = '';
@@ -807,7 +803,7 @@ function renderEpisodes() {
     if (!episodesList) return;
 
     if (!currentEpisodes || currentEpisodes.length === 0) {
-        episodesList.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">没有可用的集数</div>';
+        episodesList.innerHTML = '<div class="text-center text-gray-400 py-8">没有可用的集数</div>';
         return;
     }
 
@@ -822,8 +818,8 @@ function renderEpisodes() {
         html += `
             <button id="episode-${realIndex}" 
                     onclick="playEpisode(${realIndex})" 
-                    class="px-4 py-2 ${isActive ? 'episode-active' : '!bg-[#222] hover:!bg-[#333] hover:!shadow-none'} !border ${isActive ? '!border-blue-500' : '!border-[#333]'} rounded-lg transition-colors text-center episode-btn">
-                第${realIndex + 1}集
+                    class="episode-btn ${isActive ? 'episode-active' : '!bg-[#222] hover:!bg-[#333] hover:!shadow-none'} !border ${isActive ? '!border-blue-500' : '!border-[#333]'} rounded-lg transition-colors text-center">
+                ${realIndex + 1}
             </button>
         `;
     });
@@ -1478,25 +1474,7 @@ async function clearAllCache() {
     }
 }
 
-// 切换自动连播
-function toggleAutoplay() {
-    autoplayEnabled = !autoplayEnabled;
-    updateAutoplayButton();
-}
-
-// 更新自动连播按钮状态
-function updateAutoplayButton() {
-    const autoplayButton = document.getElementById('autoplayToggle');
-    if (autoplayButton) {
-        if (autoplayEnabled) {
-            autoplayButton.classList.add('active');
-        } else {
-            autoplayButton.classList.remove('active');
-        }
-    } else {
-        console.error('找不到自动连播按钮');
-    }
-}
+// 自动连播功能已移除，默认始终为true
 
 // 切换集数网格显示
 function toggleEpisodesGrid() {
