@@ -1,5 +1,5 @@
 // 全局变量
-let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["tyyszy","dyttzy", "mozhua", "wolong"]'); // 默认选中的
+let selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '["mozhua", "wolong","xinlang"]'); // 默认选中的
 let customAPIs = JSON.parse(localStorage.getItem('customAPIs') || '[]'); // 存储自定义API列表
 
 // 添加当前播放的集数索引
@@ -1625,7 +1625,7 @@ async function search() {
                     if (result.videoUrlInfo.estimatedSize) {
                         tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-indigo-500 text-indigo-300">${result.videoUrlInfo.estimatedSize}</span>`;
                     }
-                     if (result.videoUrlInfo.info.totalDurationFormatted) {
+                    if (result.videoUrlInfo.info.totalDurationFormatted) {
                         tagsHtml += `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-indigo-500 text-indigo-300">${result.videoUrlInfo.info.totalDurationFormatted}</span>`;
                     }
                     videoInfoTagsElement.innerHTML = tagsHtml;
