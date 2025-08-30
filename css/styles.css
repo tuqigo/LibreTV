@@ -819,11 +819,19 @@ body {
     #results {
         grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
     }
+    
+    #favorites-results {
+        grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    }
 }
 
 /* 响应式调整：在小屏幕上依然保持较好的视觉效果 ipad*/
 @media (min-width: 641px) and (max-width: 768px) {
     #results {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    
+    #favorites-results {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
@@ -833,6 +841,10 @@ body {
     #results {
         grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     }
+    
+    #favorites-results {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
 }
 
 /* 调整网格布局，减少每行卡片数量以适应更大尺寸的卡片 电脑*/
@@ -840,6 +852,33 @@ body {
     #results {
         grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     }
+    
+    #favorites-results {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+}
+
+/* 收藏列表专用样式，确保与搜索结果显示一致 */
+#favorites-results {
+    width: 100%;
+    margin: 0 auto;
+}
+
+#favorites-results .card-hover {
+    transition: all 0.3s ease;
+}
+
+#favorites-results .search-card-img-container {
+    width: 120px;
+    height: 160px;
+    flex-shrink: 0;
+}
+
+#favorites-results .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 /* 优化卡片内元素间距 */

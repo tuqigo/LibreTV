@@ -166,17 +166,21 @@
                     </div>
                 </div>
 
-                <!-- 豆瓣热门开关 -->
+                <!-- 首页内容选择器 -->
                 <div class="flex items-center justify-between">
                     <div>
-                        <label class="text-sm font-medium text-gray-400">豆瓣热门推荐</label>
-                        <p class="text-xs text-gray-500 mt-1">首页显示豆瓣热门影视内容</p>
+                        <label class="text-sm font-medium text-gray-400">首页展示内容</label>
+                        <p class="text-xs text-gray-500 mt-1">选择首页显示内容</p>
                     </div>
-                    <div class="relative inline-block w-12 align-middle select-none">
-                        <input type="checkbox" id="doubanToggle" class="opacity-0 absolute w-full h-full cursor-pointer z-10">
-                        <div class="toggle-bg bg-[#333] w-12 h-6 rounded-full transition-colors duration-300 ease-in-out"></div>
-                        <div class="toggle-dot absolute w-5 h-5 bg-white rounded-full top-0.5 left-0.5 transition-transform duration-300 ease-in-out"></div>
+                    <div class="flex space-x-2">
+                        <button id="contentToggle1" class="px-2 py-1 text-xs rounded bg-pink-600 text-white">豆瓣热门</button>
+                        <button id="contentToggle2" class="px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white">用户收藏</button>
+                        <button id="contentToggle3" class="px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white">仅搜索</button>
                     </div>
+                </div>
+                <!-- 添加说明文字 -->
+                <div class="text-xs text-gray-500 mt-1">
+                    <span id="contentToggleLabel">豆瓣热门推荐</span>
                 </div>
             </div>
 
@@ -267,6 +271,27 @@
 
                     <!-- 推荐内容 -->
                     <div id="douban-results" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3"></div>
+                </div>
+            </div>
+
+
+
+            <!-- 用户收藏列表区域: 默认隐藏 -->
+            <div id="favoritesArea" class="w-full hidden">
+                <div class="mx-auto max-w-7xl px-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-white">我的收藏</h2>
+                        <button id="favorites-refresh" class="text-sm px-3 py-1 bg-pink-600 hover:bg-pink-700 text-white rounded-lg flex items-center gap-1">
+                            <span>刷新</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- 修改网格布局以适应大一些的横向卡片，与搜索结果保持一致 -->
+                    <div id="favorites-results" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <div class="text-center text-gray-500 py-8 col-span-full">暂无收藏内容</div>
+                    </div>
                 </div>
             </div>
 
@@ -442,6 +467,17 @@
                     disclaimerModal.style.display = 'none';
                     // smartSelectAllAPIs()
                 });
+            }
+            
+            // 初始化收藏功能
+            if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
+                // 如果用户已登录，加载收藏状态
+                setTimeout(() => {
+                    if (typeof batchCheckFavorites === 'function') {
+                        // 延迟执行，确保所有函数都已加载
+                        batchCheckFavorites([]);
+                    }
+                }, 1000);
             }
         });
     </script>

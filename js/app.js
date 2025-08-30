@@ -638,7 +638,7 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem(PLAYER_CONFIG.adFilteringStorage, 'true');
 
         // 默认启用豆瓣功能
-        localStorage.setItem('doubanEnabled', 'true');
+        localStorage.setItem('contentDisplayState', 'douban');
 
         // 标记已初始化默认值
         localStorage.setItem('hasInitializedDefaults', 'true');
@@ -658,6 +658,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 设置事件监听器
     setupEventListeners();
+
+    // 初始化豆瓣功能（包括收藏功能）
+    if (typeof initDouban === 'function') {
+        initDouban();
+    }
+
+    // 初始化用户收藏状态（如果用户已登录）
+    if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
+        setTimeout(() => {
+            batchCheckFavorites([]);
+        }, 500);
+    }
 
     // 初始检查成人API选中状态
     setTimeout(checkAdultAPIsSelected, 100);
@@ -1340,9 +1352,10 @@ function resetSearchArea() {
 
 
     // 如果有豆瓣功能，检查是否需要显示豆瓣推荐区域
-    if (typeof updateDoubanVisibility === 'function') {
-        updateDoubanVisibility();
-    }
+    // 注释掉这个调用，因为resetToHome已经处理了
+    // if (typeof updateDoubanVisibility === 'function') {
+    //     updateDoubanVisibility();
+    // }
 }
 
 // 获取自定义API信息
@@ -1475,10 +1488,14 @@ async function search() {
         document.getElementById('searchArea').classList.add('mb-8');
         document.getElementById('resultsArea').classList.remove('hidden');
 
-        // 隐藏豆瓣推荐区域（如果存在）
+        // 隐藏豆瓣推荐区域和收藏列表区域（如果存在）
         const doubanArea = document.getElementById('doubanArea');
+        const favoritesArea = document.getElementById('favoritesArea');
         if (doubanArea) {
             doubanArea.classList.add('hidden');
+        }
+        if (favoritesArea) {
+            favoritesArea.classList.add('hidden');
         }
 
         const resultsDiv = document.getElementById('results');
@@ -1542,6 +1559,14 @@ async function search() {
                                  onerror="this.onerror=null; this.src='https://via.placeholder.com/300x450?text=无封面'; this.classList.add('object-contain');" 
                                  loading="lazy">
                             <div class="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
+                            <!-- 收藏按钮 -->
+                            <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10" 
+                                    onclick="event.stopPropagation(); toggleFavorite('${key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" 
+                                    data-key="${key}">
+                                <svg class="w-5 h-5 favorite-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                                </svg>
+                            </button>
                         </div>` : ''}
                         
                         <div class="p-2 flex flex-col flex-grow">
@@ -1575,6 +1600,14 @@ async function search() {
                 </div>
             `;
         }).join('');
+
+        // 批量查询收藏状态
+        const keys = allResults.map(item => {
+            const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
+            const sourceCode = item.source_code || '';
+            return (safeId || '') + '_' + sourceCode;
+        });
+        batchCheckFavorites(keys);
 
         // 根据 data-latency 对结果进行排序
         const resortByLatency = () => {
@@ -2049,4 +2082,186 @@ function saveStringAsFile(content, fileName) {
     // 清理临时对象
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+}
+
+// 收藏相关函数
+let userFavorites = new Set(); // 存储用户收藏的key
+
+// 切换收藏状态
+async function toggleFavorite(key, videoData) {
+    try {
+        // 检查用户是否已登录
+        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
+            showToast('请先登录后再使用收藏功能', 'error');
+            return;
+        }
+
+        const isFavorited = userFavorites.has(key);
+        const action = isFavorited ? 'remove' : 'add';
+
+        const response = await fetch('/proxy/api/user-favorites', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: action,
+                key: key,
+                data: action === 'add' ? videoData : null
+            })
+        });
+
+        if (response.ok) {
+            if (action === 'add') {
+                userFavorites.add(key);
+                showToast('收藏成功', 'success');
+            } else {
+                userFavorites.delete(key);
+                showToast('取消收藏成功', 'success');
+            }
+            // 更新收藏按钮样式
+            updateFavoriteButtonStyle(key, action === 'add');
+        } else {
+            const errorData = await response.json();
+            showToast(`操作失败: ${errorData.error || '未知错误'}`, 'error');
+        }
+    } catch (error) {
+        console.error('收藏操作失败:', error);
+        showToast('网络错误，请稍后重试', 'error');
+    }
+}
+
+// 更新收藏按钮样式
+function updateFavoriteButtonStyle(key, isFavorited) {
+    const button = document.querySelector(`button[data-key="${key}"]`);
+    if (button) {
+        const icon = button.querySelector('.favorite-icon');
+        if (icon) {
+            if (isFavorited) {
+                icon.style.fill = '#fbbf24'; // 黄色填充
+                icon.style.stroke = '#fbbf24';
+            } else {
+                icon.style.fill = 'none';
+                icon.style.stroke = 'currentColor';
+            }
+        }
+    }
+}
+
+// 批量查询收藏状态
+async function batchCheckFavorites(keys) {
+    try {
+        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
+            return;
+        }
+
+        const response = await fetch('/proxy/api/user-favorites/batch-check', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ keys: keys })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            userFavorites.clear();
+            Object.keys(data.favorites).forEach(key => {
+                if (data.favorites[key]) {
+                    userFavorites.add(key);
+                }
+            });
+            // 更新所有收藏按钮样式
+            keys.forEach(key => {
+                updateFavoriteButtonStyle(key, userFavorites.has(key));
+            });
+        }
+    } catch (error) {
+        console.error('批量查询收藏状态失败:', error);
+    }
+}
+
+// 加载用户收藏列表
+async function loadUserFavorites() {
+    try {
+        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
+            return;
+        }
+
+        const response = await fetch('/proxy/api/user-favorites');
+        if (response.ok) {
+            const data = await response.json();
+            displayFavorites(data.favorites);
+        }
+    } catch (error) {
+        console.error('加载收藏列表失败:', error);
+    }
+}
+
+// 显示收藏列表 - 使用与搜索结果一致的样式
+function displayFavorites(favorites) {
+    const container = document.getElementById('favorites-results');
+    if (!container) return;
+
+    if (!favorites || favorites.length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-8 col-span-full">暂无收藏内容</div>';
+        return;
+    }
+
+    container.innerHTML = favorites.map(item => {
+        const videoData = item.data;
+        const safeName = (videoData.vod_name || '').toString()
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        const hasCover = videoData.vod_pic && videoData.vod_pic.startsWith('http');
+        const sourceInfo = videoData.source_name ?
+            `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${videoData.source_name}</span>` : '';
+
+        return `
+            <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md" 
+                 data-key="${item.key}" onclick="checkAndPlayVideo('${videoData.vod_id || ''}','${safeName}','${videoData.source_code || ''}')">
+                <div class="flex h-full">
+                    ${hasCover ? `
+                    <div class="relative flex-shrink-0 search-card-img-container">
+                        <img src="${videoData.vod_pic}" alt="${safeName}" 
+                             class="h-full w-full object-cover transition-transform hover:scale-110" 
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/300x450?text=无封面'; this.classList.add('object-contain');" 
+                             loading="lazy">
+                        <div class="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
+                        <!-- 收藏按钮 -->
+                        <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10" 
+                                onclick="event.stopPropagation(); toggleFavorite('${item.key}', ${JSON.stringify(videoData).replace(/"/g, '&quot;')})" 
+                                data-key="${item.key}">
+                            <svg class="w-5 h-5 favorite-icon" fill="#fbbf24" stroke="#fbbf24" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                            </svg>
+                        </button>
+                    </div>` : ''}
+                    
+                    <div class="p-2 flex flex-col flex-grow">
+                        <div class="flex-grow">
+                            <h3 class="font-semibold mb-2 break-words line-clamp-2 ${hasCover ? '' : 'text-center'}" title="${safeName}">${safeName}</h3>
+                            
+                            <div class="flex flex-wrap ${hasCover ? '' : 'justify-center'} gap-1 mb-2">
+                                ${(videoData.type_name || '').toString().replace(/</g, '&lt;') ?
+                `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-blue-500 text-blue-300">
+                                      ${(videoData.type_name || '').toString().replace(/</g, '&lt;')}
+                                  </span>` : ''}
+                                ${(videoData.vod_year || '') ?
+                `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-purple-500 text-purple-300">
+                                      ${videoData.vod_year}
+                                  </span>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
+                            ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
+                            <div class="text-xs text-gray-400">收藏于 ${new Date(item.created_at).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }

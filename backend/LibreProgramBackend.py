@@ -109,6 +109,19 @@ def init_db():
             )
         ''')
 
+        # 用户收藏表
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS user_favorites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                data TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                UNIQUE(user_id, key)
+            )
+        ''')
+
         conn.commit()
 
 
@@ -740,6 +753,112 @@ def get_user_info():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok', 'message': '服务正常运行'})
+
+# 用户收藏接口
+@app.route('/api/user-favorites', methods=['GET', 'POST'])
+@jwt_required
+def user_favorites():
+    try:
+        user_id = request.user['user_id']
+        
+        if request.method == 'GET':
+            # 获取用户所有收藏
+            with sqlite3.connect(DB_PATH) as conn:
+                cursor = conn.execute(
+                    'SELECT key, data, created_at FROM user_favorites WHERE user_id = ? ORDER BY created_at DESC',
+                    (user_id,)
+                )
+                favorites = []
+                for row in cursor.fetchall():
+                    try:
+                        data = json.loads(row[1])  # 修复：row[1]是data，row[0]是key
+                        favorites.append({
+                            'key': row[0],
+                            'data': data,
+                            'created_at': row[2]
+                        })
+                    except json.JSONDecodeError:
+                        continue
+                
+                return jsonify({'favorites': favorites}), 200
+                
+        elif request.method == 'POST':
+            # 添加或取消收藏
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': '请求体不能为空'}), 400
+                
+            action = data.get('action')  # 'add' 或 'remove'
+            key = data.get('key', '').strip()
+            video_data = data.get('data')
+            
+            if not action or not key:
+                return jsonify({'error': '缺少必要参数'}), 400
+                
+            with sqlite3.connect(DB_PATH) as conn:
+                if action == 'add':
+                    if not video_data:
+                        return jsonify({'error': '添加收藏时视频数据不能为空'}), 400
+                    
+                    # 添加收藏
+                    conn.execute(
+                        'INSERT OR REPLACE INTO user_favorites (user_id, key, data) VALUES (?, ?, ?)',
+                        (user_id, key, json.dumps(video_data, separators=(',', ':')))
+                    )
+                    conn.commit()
+                    app.logger.info(f"用户 {user_id} 添加收藏: {key}")
+                    return jsonify({'message': '收藏成功'}), 200
+                    
+                elif action == 'remove':
+                    # 取消收藏
+                    conn.execute(
+                        'DELETE FROM user_favorites WHERE user_id = ? AND key = ?',
+                        (user_id, key)
+                    )
+                    conn.commit()
+                    app.logger.info(f"用户 {user_id} 取消收藏: {key}")
+                    return jsonify({'message': '取消收藏成功'}), 200
+                    
+                else:
+                    return jsonify({'error': '无效的操作类型'}), 400
+                    
+    except Exception as e:
+        app.logger.error(f"收藏操作失败: {str(e)}")
+        return jsonify({'error': f'操作失败: {str(e)}'}), 500
+
+
+# 批量查询收藏状态接口
+@app.route('/api/user-favorites/batch-check', methods=['POST'])
+@jwt_required
+def batch_check_favorites():
+    try:
+        user_id = request.user['user_id']
+        data = request.get_json()
+        
+        if not data or 'keys' not in data:
+            return jsonify({'error': '缺少keys参数'}), 400
+            
+        keys = data['keys']
+        if not isinstance(keys, list):
+            return jsonify({'error': 'keys必须是数组'}), 400
+            
+        with sqlite3.connect(DB_PATH) as conn:
+            # 查询用户收藏的keys
+            placeholders = ','.join(['?' for _ in keys])
+            cursor = conn.execute(
+                f'SELECT key FROM user_favorites WHERE user_id = ? AND key IN ({placeholders})',
+                [user_id] + keys
+            )
+            favorited_keys = {row[0] for row in cursor.fetchall()}
+            
+            # 构建结果：key -> 是否已收藏
+            result = {key: key in favorited_keys for key in keys}
+            
+            return jsonify({'favorites': result}), 200
+            
+    except Exception as e:
+        app.logger.error(f"批量查询收藏状态失败: {str(e)}")
+        return jsonify({'error': f'查询失败: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

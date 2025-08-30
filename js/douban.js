@@ -55,40 +55,25 @@ const doubanPageSize = 16; // 一次显示的项目数量
 
 // 初始化豆瓣功能
 function initDouban() {
-    // 设置豆瓣开关的初始状态
-    const doubanToggle = document.getElementById('doubanToggle');
-    if (doubanToggle) {
-        const isEnabled = localStorage.getItem('doubanEnabled') === 'true';
-        doubanToggle.checked = isEnabled;
+    // 设置内容选择器的初始状态
+    const contentToggle1 = document.getElementById('contentToggle1');
+    const contentToggle2 = document.getElementById('contentToggle2');
+    const contentToggle3 = document.getElementById('contentToggle3');
+    
+    if (contentToggle1 && contentToggle2 && contentToggle3) {
+        // 从localStorage获取当前选择的状态，默认为豆瓣热门
+        const currentState = localStorage.getItem('contentDisplayState') || 'douban';
         
-        // 设置开关外观
-        const toggleBg = doubanToggle.nextElementSibling;
-        const toggleDot = toggleBg.nextElementSibling;
-        if (isEnabled) {
-            toggleBg.classList.add('bg-pink-600');
-            toggleDot.classList.add('translate-x-6');
-        }
+        // 设置初始状态
+        updateContentToggleState(currentState);
         
         // 添加事件监听
-        doubanToggle.addEventListener('change', function(e) {
-            const isChecked = e.target.checked;
-            localStorage.setItem('doubanEnabled', isChecked);
-            
-            // 更新开关外观
-            if (isChecked) {
-                toggleBg.classList.add('bg-pink-600');
-                toggleDot.classList.add('translate-x-6');
-            } else {
-                toggleBg.classList.remove('bg-pink-600');
-                toggleDot.classList.remove('translate-x-6');
-            }
-            
-            // 更新显示状态
-            updateDoubanVisibility();
-        });
+        contentToggle1.addEventListener('click', () => setContentDisplay('douban'));
+        contentToggle2.addEventListener('click', () => setContentDisplay('favorites'));
+        contentToggle3.addEventListener('click', () => setContentDisplay('search'));
         
         // 初始更新显示状态
-        updateDoubanVisibility();
+        updateContentVisibility(currentState);
 
         // 滚动到页面顶部
         window.scrollTo(0, 0);
@@ -106,31 +91,116 @@ function initDouban() {
     // 换一批按钮事件监听
     setupDoubanRefreshBtn();
     
+    // 收藏列表刷新按钮事件监听
+    setupFavoritesRefreshBtn();
+    
     // 初始加载热门内容
-    if (localStorage.getItem('doubanEnabled') === 'true') {
+    const currentState = localStorage.getItem('contentDisplayState') || 'douban';
+    if (currentState === 'douban') {
         renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
     }
 }
 
-// 根据设置更新豆瓣区域的显示状态
-function updateDoubanVisibility() {
-    const doubanArea = document.getElementById('doubanArea');
-    if (!doubanArea) return;
+// 设置内容显示状态
+function setContentDisplay(state) {
+    localStorage.setItem('contentDisplayState', state);
+    updateContentToggleState(state);
+    updateContentVisibility(state);
+}
+
+// 更新内容选择器的按钮状态
+function updateContentToggleState(state) {
+    const contentToggle1 = document.getElementById('contentToggle1');
+    const contentToggle2 = document.getElementById('contentToggle2');
+    const contentToggle3 = document.getElementById('contentToggle3');
     
-    const isEnabled = localStorage.getItem('doubanEnabled') === 'true';
-    const isSearching = document.getElementById('resultsArea') && 
-        !document.getElementById('resultsArea').classList.contains('hidden');
+    if (!contentToggle1 || !contentToggle2 || !contentToggle3) return;
     
-    // 只有在启用且没有搜索结果显示时才显示豆瓣区域
-    if (isEnabled && !isSearching) {
-        doubanArea.classList.remove('hidden');
-        // 如果豆瓣结果为空，重新加载
-        if (document.getElementById('douban-results').children.length === 0) {
-            renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
-        }
-    } else {
-        doubanArea.classList.add('hidden');
+    // 重置所有按钮状态
+    contentToggle1.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
+    contentToggle2.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
+    contentToggle3.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
+    
+    // 设置当前选中状态
+    switch (state) {
+        case 'douban':
+            contentToggle1.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            break;
+        case 'favorites':
+            contentToggle2.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            break;
+        case 'search':
+            contentToggle3.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            break;
     }
+}
+
+// 防止重复加载收藏列表的标志
+let isFavoritesLoading = false;
+
+// 根据设置更新豆瓣区域和收藏列表的显示状态
+function updateContentVisibility(state) {
+    const doubanArea = document.getElementById('doubanArea');
+    const favoritesArea = document.getElementById('favoritesArea');
+    const contentToggleLabel = document.getElementById('contentToggleLabel');
+
+    if (!doubanArea || !favoritesArea) return;
+
+    const isSearching = document.getElementById('resultsArea') &&
+        !document.getElementById('resultsArea').classList.contains('hidden');
+
+    // 搜索时隐藏所有内容区域
+    if (isSearching) {
+        doubanArea.classList.add('hidden');
+        favoritesArea.classList.add('hidden');
+        return;
+    }
+
+    // 根据选择的状态显示对应内容
+    switch (state) {
+        case 'douban':
+            doubanArea.classList.remove('hidden');
+            favoritesArea.classList.add('hidden');
+            contentToggleLabel.textContent = '豆瓣热门推荐';
+            // 如果豆瓣结果为空，重新加载
+            if (document.getElementById('douban-results').children.length === 0) {
+                renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
+            }
+            break;
+        case 'favorites':
+            doubanArea.classList.add('hidden');
+            favoritesArea.classList.remove('hidden');
+            contentToggleLabel.textContent = '用户收藏列表';
+            // 防止重复加载收藏列表
+            if (!isFavoritesLoading) {
+                const favoritesResults = document.getElementById('favorites-results');
+                if (!favoritesResults || favoritesResults.children.length === 0 ||
+                    favoritesResults.querySelector('.text-gray-500')) {
+                    console.log('Loading user favorites...');
+                    isFavoritesLoading = true;
+                    loadUserFavorites().finally(() => {
+                        console.log('User favorites loaded');
+                        isFavoritesLoading = false;
+                    });
+                } else {
+                    console.log('Favorites already loaded, skipping API call');
+                }
+            } else {
+                console.log('Favorites loading in progress, skipping duplicate call');
+            }
+            break;
+        case 'search':
+            doubanArea.classList.add('hidden');
+            favoritesArea.classList.add('hidden');
+            contentToggleLabel.textContent = '仅显示搜索框';
+            break;
+    }
+}
+
+// 兼容旧版本的函数名
+function updateDoubanVisibility() {
+    const state = localStorage.getItem('contentDisplayState') || 'douban';
+    updateContentVisibility(state);
 }
 
 // 只填充搜索框，不执行搜索，让用户自主决定搜索时机
@@ -250,7 +320,8 @@ function renderDoubanMovieTvSwitch() {
             setupDoubanRefreshBtn();
             
             // 初始加载热门内容
-            if (localStorage.getItem('doubanEnabled') === 'true') {
+            const currentState = localStorage.getItem('contentDisplayState') || 'douban';
+            if (currentState === 'douban') {
                 renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
             }
         }
@@ -276,7 +347,8 @@ function renderDoubanMovieTvSwitch() {
             setupDoubanRefreshBtn();
             
             // 初始加载热门内容
-            if (localStorage.getItem('doubanEnabled') === 'true') {
+            const currentState = localStorage.getItem('contentDisplayState') || 'douban';
+            if (currentState === 'douban') {
                 renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
             }
         }
@@ -535,8 +607,11 @@ function renderDoubanCards(data, container) {
 
 // 重置到首页
 function resetToHome() {
+    console.log('Resetting to home...');
     resetSearchArea();
-    updateDoubanVisibility();
+    // 避免重复调用，直接获取当前状态并更新
+    const currentState = localStorage.getItem('contentDisplayState') || 'douban';
+    updateContentVisibility(currentState);
 }
 
 // 加载豆瓣首页内容
@@ -753,4 +828,24 @@ function resetTagsToDefault() {
     renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
     
     showToast('已恢复默认标签', 'success');
+}
+
+// 设置收藏列表刷新按钮事件监听
+function setupFavoritesRefreshBtn() {
+    const favoritesRefreshBtn = document.getElementById('favorites-refresh');
+    if (favoritesRefreshBtn) {
+        favoritesRefreshBtn.addEventListener('click', function() {
+            if (!isFavoritesLoading) {
+                console.log('Refreshing favorites...');
+                isFavoritesLoading = true;
+                loadUserFavorites().finally(() => {
+                    console.log('Favorites refreshed');
+                    isFavoritesLoading = false;
+                });
+                showToast('收藏列表已刷新', 'success');
+            } else {
+                console.log('Favorites refresh in progress, skipping duplicate call');
+            }
+        });
+    }
 }
