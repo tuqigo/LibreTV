@@ -1769,7 +1769,7 @@ async function checkAndPlayVideo(id, vod_name, sourceCode) {
                     const customApi = getCustomApiInfo(customIndex);
                     sourceName = customApi ? customApi.name : '';
                 }
-                playVideo(safeEpisodes[0], vod_name, sourceCode, 0, sourceName);
+                playVideo(safeEpisodes[0], vod_name, sourceCode, 0, sourceName, id);
                 return;
             }
 
@@ -1832,7 +1832,7 @@ async function showDetails(id, vod_name, sourceCode, detaildata) {
                     </button>
                 </div>
                 <div id="episodesGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                    ${renderEpisodes(vod_name, sourceCode)}
+                    ${renderEpisodes(vod_name, sourceCode, id)}
                 </div>
             `;
         } else {
@@ -1849,7 +1849,7 @@ async function showDetails(id, vod_name, sourceCode, detaildata) {
 }
 
 // 更新播放视频函数，修改为在新标签页中打开播放页面，并保存到历史记录
-function playVideo(url, vod_name, sourceCode, episodeIndex = 0, sourceName = '') {
+function playVideo(url, vod_name, sourceCode, episodeIndex = 0, sourceName = '', vod_id = '') {
     if (!url) {
         showToast('无效的视频链接', 'error');
         return;
@@ -1894,6 +1894,8 @@ function playVideo(url, vod_name, sourceCode, episodeIndex = 0, sourceName = '')
         url: url,
         episodeIndex: episodeIndex,
         sourceName: sourceName,
+        source_code: sourceCode,
+        vod_id: vod_id,
         timestamp: Date.now(),
         // 重要：将完整的剧集信息也添加到历史记录中
         episodes: currentEpisodes && currentEpisodes.length > 0 ? [...currentEpisodes] : []
@@ -1905,7 +1907,7 @@ function playVideo(url, vod_name, sourceCode, episodeIndex = 0, sourceName = '')
     }
 
     // 构建播放页面URL，传递必要参数
-    const playerUrl = `player.html?url=${encodeURIComponent(url)}&title=${encodeURIComponent(videoTitle)}&index=${episodeIndex}&source=${encodeURIComponent(sourceName)}&source_code=${encodeURIComponent(sourceCode)}`;
+    const playerUrl = `player.html?url=${encodeURIComponent(url)}&title=${encodeURIComponent(videoTitle)}&index=${episodeIndex}&source=${encodeURIComponent(sourceName)}&source_code=${encodeURIComponent(sourceCode)}&vod_id=${encodeURIComponent(vod_id)}`;
 
     // 在当前标签页中打开播放页面
     window.location.href = playerUrl;
@@ -1916,7 +1918,12 @@ function playPreviousEpisode(sourceCode) {
     if (currentEpisodeIndex > 0) {
         const prevIndex = currentEpisodeIndex - 1;
         const prevUrl = currentEpisodes[prevIndex];
-        playVideo(prevUrl, currentVideoTitle, sourceCode, prevIndex);
+        
+        // 从URL参数获取当前视频的vod_id，而不是依赖localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentVodId = urlParams.get('vod_id') || '';
+        
+        playVideo(prevUrl, currentVideoTitle, sourceCode, prevIndex, '', currentVodId);
     }
 }
 
@@ -1925,7 +1932,12 @@ function playNextEpisode(sourceCode) {
     if (currentEpisodeIndex < currentEpisodes.length - 1) {
         const nextIndex = currentEpisodeIndex + 1;
         const nextUrl = currentEpisodes[nextIndex];
-        playVideo(nextUrl, currentVideoTitle, sourceCode, nextIndex);
+        
+        // 从URL参数获取当前视频的vod_id，而不是依赖localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentVodId = urlParams.get('vod_id') || '';
+        
+        playVideo(nextUrl, currentVideoTitle, sourceCode, nextIndex, '', currentVodId);
     }
 }
 
@@ -1936,13 +1948,13 @@ function handlePlayerError() {
 }
 
 // 辅助函数用于渲染剧集按钮（使用当前的排序状态）
-function renderEpisodes(vodName, sourceCode) {
+function renderEpisodes(vodName, sourceCode, vod_id = '') {
     const episodes = episodesReversed ? [...currentEpisodes].reverse() : currentEpisodes;
     return episodes.map((episode, index) => {
         // 根据倒序状态计算真实的剧集索引
         const realIndex = episodesReversed ? currentEpisodes.length - 1 - index : index;
         return `
-            <button id="episode-${realIndex}" onclick="playVideo('${episode}','${vodName.replace(/"/g, '&quot;')}', '${sourceCode}', ${realIndex})" 
+            <button id="episode-${realIndex}" onclick="playVideo('${episode}','${vodName.replace(/"/g, '&quot;')}', '${sourceCode}', ${realIndex}, '', '${vod_id}')" 
                     class="px-4 py-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors text-center episode-btn">
                 第${realIndex + 1}集
             </button>
@@ -1967,7 +1979,10 @@ function toggleEpisodeOrder(sourceCode) {
     // 重新渲染剧集区域，使用 currentVideoTitle 作为视频标题
     const episodesGrid = document.getElementById('episodesGrid');
     if (episodesGrid) {
-        episodesGrid.innerHTML = renderEpisodes(currentVideoTitle, sourceCode);
+        // 从URL参数获取当前视频的vod_id，而不是依赖localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentVodId = urlParams.get('vod_id') || '';
+        episodesGrid.innerHTML = renderEpisodes(currentVideoTitle, sourceCode, currentVodId);
     }
 
     // 更新按钮文本和箭头方向

@@ -77,6 +77,7 @@ function initializePageContent() {
     const sourceCode = urlParams.get('source_code');
     let index = parseInt(urlParams.get('index') || '0');
     const episodesList = urlParams.get('episodes'); // 新增：从URL获取集数信息
+    const vodId = urlParams.get('vod_id'); // 新增：从URL获取vod_id
 
     // 从localStorage获取数据
     currentVideoTitle = title || localStorage.getItem('currentVideoTitle') || '未知视频';
@@ -1092,6 +1093,7 @@ function saveToHistory() {
     const urlParams = new URLSearchParams(window.location.search);
     const sourceName = urlParams.get('source') || '';
     const sourceCode = urlParams.get('source_code') || '';
+    const vod_id = urlParams.get('vod_id') || '';
 
     // 获取当前播放进度
     let currentPosition = 0;
@@ -1109,6 +1111,8 @@ function saveToHistory() {
         url: `player.html?title=${encodeURIComponent(currentVideoTitle)}&source=${encodeURIComponent(sourceName)}&source_code=${encodeURIComponent(sourceCode)}`,
         episodeIndex: currentEpisodeIndex,
         sourceName: sourceName,
+        source_code: sourceCode,
+        vod_id: vod_id, // 使用从URL参数获取的vodId
         timestamp: Date.now(),
         // 添加播放进度信息
         playbackPosition: currentPosition > 10 ? currentPosition : 0,
@@ -1117,12 +1121,6 @@ function saveToHistory() {
         episodes: currentEpisodes && currentEpisodes.length > 0 ? [...currentEpisodes] : []
     };
 
-    // 如果外部定义了addToViewingHistory函数，则调用它
-    // if (typeof addToViewingHistory === 'function') {
-    //     addToViewingHistory(videoInfo);
-    //     console.log(`已保存 "${currentVideoTitle}" 的历史记录, 集数数据: ${currentEpisodes.length}集`);
-    // } else {
-    // 否则直接使用本地实现
     try {
         const history = JSON.parse(localStorage.getItem('viewingHistory') || '[]');
 
@@ -1132,7 +1130,15 @@ function saveToHistory() {
             // 存在则更新现有记录的集数、时间戳和URL
             history[existingIndex].episodeIndex = currentEpisodeIndex;
             history[existingIndex].timestamp = Date.now();
-            history[existingIndex].sourceName = sourceName
+            history[existingIndex].sourceName = sourceName;
+            
+            // 确保vod_id和source_code信息保留
+            if (videoInfo.vod_id && !history[existingIndex].vod_id) {
+                history[existingIndex].vod_id = videoInfo.vod_id;
+            }
+            if (videoInfo.source_code && !history[existingIndex].source_code) {
+                history[existingIndex].source_code = videoInfo.source_code;
+            }
             // 更新播放进度信息
             history[existingIndex].playbackPosition = currentPosition > 10 ? currentPosition : history[existingIndex].playbackPosition;
             history[existingIndex].duration = videoDuration || history[existingIndex].duration;
@@ -1251,23 +1257,32 @@ function saveCurrentProgress() {
             const historyRaw = localStorage.getItem('viewingHistory');
             if (historyRaw) {
                 const history = JSON.parse(historyRaw);
-                // 用 title + 集数索引唯一标识
-                const idx = history.findIndex(item =>
-                    item.title === currentVideoTitle &&
-                    (item.episodeIndex === undefined || item.episodeIndex === currentEpisodeIndex)
-                );
-                if (idx !== -1) {
-                    // 只在进度有明显变化时才更新，减少写入
-                    if (
-                        Math.abs((history[idx].playbackPosition || 0) - currentTime) > 2 ||
-                        Math.abs((history[idx].duration || 0) - duration) > 2
-                    ) {
-                        history[idx].playbackPosition = currentTime;
-                        history[idx].duration = duration;
-                        history[idx].timestamp = Date.now();
-                        localStorage.setItem('viewingHistory', JSON.stringify(history));
-                    }
+                        // 用 title + 集数索引唯一标识
+        const idx = history.findIndex(item =>
+            item.title === currentVideoTitle &&
+            (item.episodeIndex === undefined || item.episodeIndex === currentEpisodeIndex)
+        );
+        if (idx !== -1) {
+            // 只在进度有明显变化时才更新，减少写入
+            if (
+                Math.abs((history[idx].playbackPosition || 0) - currentTime) > 2 ||
+                Math.abs((history[idx].duration || 0) - duration) > 2
+            ) {
+                history[idx].playbackPosition = currentTime;
+                history[idx].duration = duration;
+                history[idx].timestamp = Date.now();
+                
+                // 确保vod_id和source_code信息保留
+                if (vodId && !history[idx].vod_id) {
+                    history[idx].vod_id = vodId;
                 }
+                if (sourceCode && !history[idx].source_code) {
+                    history[idx].source_code = sourceCode;
+                }
+                
+                localStorage.setItem('viewingHistory', JSON.stringify(history));
+            }
+        }
             }
         } catch (e) {
             // 忽略 viewingHistory 更新错误

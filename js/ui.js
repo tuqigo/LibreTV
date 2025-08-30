@@ -522,6 +522,14 @@ function addToViewingHistory(videoInfo) {
             if (videoInfo.sourceName && !existingItem.sourceName) {
                 existingItem.sourceName = videoInfo.sourceName;
             }
+            
+            // 确保vod_id和source_code信息保留
+            if (videoInfo.vod_id && !existingItem.vod_id) {
+                existingItem.vod_id = videoInfo.vod_id;
+            }
+            if (videoInfo.source_code && !existingItem.source_code) {
+                existingItem.source_code = videoInfo.source_code;
+            }
 
             // 更新播放进度信息，仅当新进度有效且大于10秒时
             if (videoInfo.playbackPosition && videoInfo.playbackPosition > 10) {
