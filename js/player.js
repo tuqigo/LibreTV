@@ -1434,60 +1434,7 @@ function toggleControlsLock() {
         : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d=\"M15 11V7a3 3 0 00-6 0v4m-3 4h12v6H6v-6z\"/>';
 }
 
-// ====== 缓存状态面板逻辑 ======
-function bytesToHuman(n) {
-    if (!n && n !== 0) return '-';
-    const u = ['B', 'KB', 'MB', 'GB', 'TB'];
-    let i = 0; let v = n;
-    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-    return `${v.toFixed(1)} ${u[i]}`;
-}
 
-async function refreshCacheStatus() {
-    // 如果面板隐藏，不需要刷新
-    if (document.getElementById('cacheStatusPanel').classList.contains('hidden')) {
-        return;
-    }
-    try {
-        const cache = window.__hlsSegmentCache;
-        const stats = cache && cache.getStats ? await cache.getStats() : null;
-        document.getElementById('cacheBackend').textContent = stats ? stats.backend : '-';
-        document.getElementById('cacheUsed').textContent = stats ? bytesToHuman(stats.totalBytes) : '-';
-        document.getElementById('cacheMax').textContent = stats ? bytesToHuman(stats.maxBytes) : '-';
-        document.getElementById('cacheItems').textContent = stats ? String(stats.items) : '-';
-        document.getElementById('cacheTTL').textContent = stats ? `${Math.round((stats.ttlMs || 0) / 3600000)} 小时` : '-';
-
-        const pf = currentHls && currentHls.__prefetcher ? currentHls.__prefetcher.getStats() : null;
-        document.getElementById('prefetchConcurrent').textContent = pf ? pf.concurrent : '-';
-        document.getElementById('prefetchWindow').textContent = pf ? pf.windowSize : '-';
-        document.getElementById('prefetchRunning').textContent = pf ? pf.running : '-';
-        document.getElementById('prefetchQueue').textContent = pf ? pf.queueSize : '-';
-    } catch (e) {
-        console.warn('刷新缓存状态失败', e);
-    }
-}
-
-function toggleCacheStatusPanel() {
-    const panel = document.getElementById('cacheStatusPanel');
-    if (!panel) return;
-    panel.classList.toggle('hidden');
-    if (!panel.classList.contains('hidden')) {
-        refreshCacheStatus();
-    }
-}
-
-async function clearAllCache() {
-    try {
-        if (window.__hlsSegmentCache && window.__hlsSegmentCache.clearAll) {
-            await window.__hlsSegmentCache.clearAll();
-            showToast && showToast('已清空分片缓存', 'success');
-            refreshCacheStatus();
-        }
-    } catch (e) {
-        console.warn('清空缓存失败', e);
-        showToast && showToast('清空缓存失败', 'error');
-    }
-}
 
 // 自动连播功能已移除，默认始终为true
 

@@ -1913,39 +1913,9 @@ function playVideo(url, vod_name, sourceCode, episodeIndex = 0, sourceName = '',
     window.location.href = playerUrl;
 }
 
-// 播放上一集
-function playPreviousEpisode(sourceCode) {
-    if (currentEpisodeIndex > 0) {
-        const prevIndex = currentEpisodeIndex - 1;
-        const prevUrl = currentEpisodes[prevIndex];
-        
-        // 从URL参数获取当前视频的vod_id，而不是依赖localStorage
-        const urlParams = new URLSearchParams(window.location.search);
-        const currentVodId = urlParams.get('vod_id') || '';
-        
-        playVideo(prevUrl, currentVideoTitle, sourceCode, prevIndex, '', currentVodId);
-    }
-}
 
-// 播放下一集
-function playNextEpisode(sourceCode) {
-    if (currentEpisodeIndex < currentEpisodes.length - 1) {
-        const nextIndex = currentEpisodeIndex + 1;
-        const nextUrl = currentEpisodes[nextIndex];
-        
-        // 从URL参数获取当前视频的vod_id，而不是依赖localStorage
-        const urlParams = new URLSearchParams(window.location.search);
-        const currentVodId = urlParams.get('vod_id') || '';
-        
-        playVideo(nextUrl, currentVideoTitle, sourceCode, nextIndex, '', currentVodId);
-    }
-}
 
-// 处理播放器加载错误
-function handlePlayerError() {
-    hideLoading();
-    showToast('视频播放加载失败，请尝试其他视频源', 'error');
-}
+
 
 // 辅助函数用于渲染剧集按钮（使用当前的排序状态）
 function renderEpisodes(vodName, sourceCode, vod_id = '') {
