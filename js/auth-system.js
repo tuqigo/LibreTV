@@ -5,7 +5,8 @@ const AUTH_CONFIG = {
     API_BASE_URL: '/proxy/api',
     TOKEN_KEY: 'libretv_jwt_token',
     USER_KEY: 'libretv_user_info',
-    TOKEN_REFRESH_INTERVAL: 4 * 60 * 1000, // 5分钟检查一次令牌
+    TOKEN_REFRESH_INTERVAL: 4 * 60 * 1000, // 4分钟检查一次令牌
+    USER_CONFIG_DETAIL: 'USER_CONFIG_DETAIL', // 新增：用户信息详情
 };
 
 // 全局状态
@@ -261,6 +262,7 @@ const pageInitializer = {
         }
         
         window.authSystemInitialized = true;
+        await this.loadUserConfig()
     },
 
     initAuthPage() {
@@ -275,11 +277,64 @@ const pageInitializer = {
         const authStatus = await authChecker.check();
         if (authStatus.isValid) {
             tokenManager.startRefreshTimer();
+             // 新增：获取用户配置
+            await this.loadUserConfig();
             this.updateUserDisplay();
+             
         } else {
             redirectManager.toAuth();
         }
     },
+
+    // 新增：加载用户详细信息
+    async loadUserConfig() {
+        try {
+
+            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/user-info`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const userDetail = await response.json();
+                
+                // 存储用户配置到 localStorage
+                localStorage.setItem(AUTH_CONFIG.USER_CONFIG_DETAIL, JSON.stringify(userDetail));
+                
+                // 根据配置更新页面
+                // await this.applyUserConfig(userDetail);
+                
+                console.log('用户详细信息加载成功:', userDetail);
+            } else {
+                console.warn('获取用户详细信息失败:', response.status);
+                // 尝试使用缓存的配置
+                await this.loadCachedConfig();
+            }
+        } catch (error) {
+            console.error('加载用户详细信息时出错:', error);
+            // 尝试使用缓存的配置
+            await this.loadCachedConfig();
+        }
+    },
+
+
+        // 新增：加载缓存的配置
+        async loadCachedConfig() {
+            try {
+                const cachedConfig = localStorage.getItem(AUTH_CONFIG.USER_CONFIG_DETAIL);
+                if (cachedConfig) {
+                    const userConfig = JSON.parse(cachedConfig);
+
+                    // await this.applyUserConfig(userConfig);
+                    console.log('使用缓存的用户详细信息:', userConfig);
+                }
+            } catch (error) {
+                console.error('加载缓存用户详细信息时出错:', error);
+            }
+        },
 
     bindEvents() {
         const loginForm = document.getElementById('loginForm');

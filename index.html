@@ -469,16 +469,6 @@
                 });
             }
             
-            // 初始化收藏功能
-            if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
-                // 如果用户已登录，加载收藏状态
-                setTimeout(() => {
-                    if (typeof batchCheckFavorites === 'function') {
-                        // 延迟执行，确保所有函数都已加载
-                        batchCheckFavorites([]);
-                    }
-                }, 1000);
-            }
         });
     </script>
 </body>
