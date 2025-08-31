@@ -667,7 +667,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 初始化用户收藏状态（如果用户已登录）
     if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
         setTimeout(() => {
-            batchCheckFavorites([]);
+            loadUserFavorites();
         }, 500);
     }
 
@@ -1541,9 +1541,17 @@ async function search() {
             const hasCover = item.vod_pic && item.vod_pic.startsWith('http');
 
             return `
-                <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md" 
+                <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md relative" 
                      data-key="${key}" data-latency=""
                      onclick="checkAndPlayVideo('${safeId}','${safeName}','${sourceCode}')" ${apiUrlAttr}>
+                    <!-- 收藏按钮 - 移动到卡片右上角，悬停时显示 -->
+                    <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10 opacity-0 group-hover:opacity-100" 
+                            onclick="event.stopPropagation(); toggleFavorite('${key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" 
+                            data-key="${key}">
+                        <svg class="w-5 h-5 favorite-icon" ${userFavorites.has(key) ? 'fill="#fbbf24" stroke="#fbbf24"' : 'fill="none" stroke="currentColor"'} viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                        </svg>
+                    </button>
                     <div class="flex h-full">
                         ${hasCover ? `
                         <div class="relative flex-shrink-0 search-card-img-container">
@@ -1552,14 +1560,6 @@ async function search() {
                                  onerror="this.onerror=null; this.src='https://via.placeholder.com/300x450?text=无封面'; this.classList.add('object-contain');" 
                                  loading="lazy">
                             <div class="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
-                            <!-- 收藏按钮 -->
-                            <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10" 
-                                    onclick="event.stopPropagation(); toggleFavorite('${key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" 
-                                    data-key="${key}">
-                                <svg class="w-5 h-5 favorite-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
-                                </svg>
-                            </button>
                         </div>` : ''}
                         
                         <div class="p-2 flex flex-col flex-grow">
@@ -1594,13 +1594,13 @@ async function search() {
             `;
         }).join('');
 
-        // 批量查询收藏状态
-        const keys = allResults.map(item => {
-            const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
-            const sourceCode = item.source_code || '';
-            return (safeId || '') + '_' + sourceCode;
-        });
-        batchCheckFavorites(keys);
+        // 收藏状态现在直接从 userFavorites 集合判断，无需额外查询
+        // const keys = allResults.map(item => {
+        //     const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
+        //     const sourceCode = item.source_code || '';
+        //     return (safeId || '') + '_' + sourceCode;
+        // });
+        // batchCheckFavorites(keys);
 
         // 根据 data-latency 对结果进行排序
         const resortByLatency = () => {
@@ -2155,6 +2155,15 @@ async function loadUserFavorites() {
         const response = await fetch('/proxy/api/user-favorites');
         if (response.ok) {
             const data = await response.json();
+            // 清空并重新填充 userFavorites 集合
+            userFavorites.clear();
+            if (data.favorites && Array.isArray(data.favorites)) {
+                data.favorites.forEach(item => {
+                    if (item.key) {
+                        userFavorites.add(item.key);
+                    }
+                });
+            }
             displayFavorites(data.favorites);
         }
     } catch (error) {
@@ -2183,8 +2192,16 @@ function displayFavorites(favorites) {
             `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${videoData.source_name}</span>` : '';
 
         return `
-            <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md" 
+            <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md relative" 
                  data-key="${item.key}" onclick="checkAndPlayVideo('${videoData.vod_id || ''}','${safeName}','${videoData.source_code || ''}')">
+                <!-- 收藏按钮 - 移动到卡片右上角，悬停时显示 -->
+                <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10 opacity-0 group-hover:opacity-100" 
+                        onclick="event.stopPropagation(); toggleFavorite('${item.key}', ${JSON.stringify(videoData).replace(/"/g, '&quot;')})" 
+                        data-key="${item.key}">
+                    <svg class="w-5 h-5 favorite-icon" ${userFavorites.has(item.key) ? 'fill="#fbbf24" stroke="#fbbf24"' : 'fill="none" stroke="currentColor"'} viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                    </svg>
+                </button>
                 <div class="flex h-full">
                     ${hasCover ? `
                     <div class="relative flex-shrink-0 search-card-img-container">
@@ -2193,14 +2210,6 @@ function displayFavorites(favorites) {
                              onerror="this.onerror=null; this.src='https://via.placeholder.com/300x450?text=无封面'; this.classList.add('object-contain');" 
                              loading="lazy">
                         <div class="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
-                        <!-- 收藏按钮 -->
-                        <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10" 
-                                onclick="event.stopPropagation(); toggleFavorite('${item.key}', ${JSON.stringify(videoData).replace(/"/g, '&quot;')})" 
-                                data-key="${item.key}">
-                            <svg class="w-5 h-5 favorite-icon" fill="#fbbf24" stroke="#fbbf24" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
-                            </svg>
-                        </button>
                     </div>` : ''}
                     
                     <div class="p-2 flex flex-col flex-grow">
