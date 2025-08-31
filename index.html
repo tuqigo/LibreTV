@@ -220,31 +220,33 @@
 
             <div id="searchArea" class="flex-1 flex flex-col items-center justify-center">
                 <div class="w-full max-w-2xl">
-                    <div class="flex items-stretch mb-3 h-14 shadow-lg rounded-lg overflow-hidden">
-                        <!-- 首页按钮 -->
-                        <button onclick="resetToHome()"
-                                class="w-20 sm:w-24 flex items-center justify-center bg-white text-black font-medium hover:bg-gray-200 transition-colors"
-                                aria-label="返回首页" title="返回首页">
-                            首页
-                        </button>
-                        <!-- 搜索输入 -->
-                        <input type="text"
-                               id="searchInput"
-                               class="flex-1 bg-[#111] border-y border-[#333] text-white px-6 py-0 focus:outline-none transition-colors"
-                               placeholder="搜索你喜欢的视频..."
-                               autocomplete="off"
-                               aria-label="视频搜索框">
-                        <!-- 搜索按钮 -->
-                        <button onclick="search()"
-                                class="w-20 sm:w-24 flex items-center justify-center bg-white text-black font-medium hover:bg-gray-200 transition-colors"
-                                aria-label="搜索按钮">
-                            搜索
-                        </button>
-                    </div>
-
-                    <!-- 添加最近搜索记录部分 -->
-                    <div id="recentSearches" class="mt-4 flex flex-wrap gap-2" aria-label="最近搜索记录">
-                        <!-- 这里会动态插入最近的搜索记录 -->
+                    <div class="relative">
+                        <div class="flex items-stretch mb-3 h-14 shadow-lg rounded-lg overflow-hidden">
+                            <!-- 首页按钮 -->
+                            <button onclick="resetToHome()"
+                                    class="w-20 sm:w-24 flex items-center justify-center bg-white text-black font-medium hover:bg-gray-200 transition-colors"
+                                    aria-label="返回首页" title="返回首页">
+                                首页
+                            </button>
+                            <!-- 搜索输入 -->
+                            <input type="text"
+                                   id="searchInput"
+                                   class="flex-1 bg-[#111] border-y border-[#333] text-white px-6 py-0 focus:outline-none transition-colors"
+                                   placeholder="搜索你喜欢的视频..."
+                                   autocomplete="off"
+                                   aria-label="视频搜索框">
+                            <!-- 搜索按钮 -->
+                            <button onclick="search()"
+                                    class="w-20 sm:w-24 flex items-center justify-center bg-white text-black font-medium hover:bg-gray-200 transition-colors"
+                                    aria-label="搜索按钮">
+                                搜索
+                            </button>
+                        </div>
+                        
+                        <!-- 搜索建议悬浮下拉 -->
+                        <div id="searchSuggestions" class="absolute top-full left-0 right-0 bg-[#1a1a1a] border border-[#333] rounded-lg shadow-xl z-50 hidden max-h-64 overflow-y-auto">
+                            <!-- 搜索建议将在这里动态插入 -->
+                        </div>
                     </div>
                 </div>
             </div>

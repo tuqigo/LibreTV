@@ -625,8 +625,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 初始化显示选中的API数量
     updateSelectedApiCount();
 
-    // 渲染搜索历史
-    renderSearchHistory();
+    // 搜索历史功能已改为悬浮下拉形式
 
     // 设置默认API选择（如果是第一次加载）
     if (!localStorage.getItem('hasInitializedDefaults')) {
@@ -1305,6 +1304,39 @@ function setupEventListeners() {
         }
     });
 
+    // 搜索建议功能
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput && typeof showSearchSuggestions === 'function' && typeof hideSearchSuggestions === 'function') {
+        // 输入时显示建议
+        searchInput.addEventListener('input', function() {
+            showSearchSuggestions();
+        });
+
+        // 聚焦时显示建议
+        searchInput.addEventListener('focus', function() {
+            showSearchSuggestions();
+        });
+
+        // 失焦时隐藏建议（延迟，让用户能点击建议项）
+        searchInput.addEventListener('blur', function() {
+            setTimeout(() => {
+                hideSearchSuggestions();
+            }, 200);
+        });
+    }
+
+    // 点击外部隐藏搜索建议
+    document.addEventListener('click', function(e) {
+        const suggestionsContainer = document.getElementById('searchSuggestions');
+        const searchInput = document.getElementById('searchInput');
+        
+        if (suggestionsContainer && searchInput && 
+            !suggestionsContainer.contains(e.target) && 
+            !searchInput.contains(e.target)) {
+            hideSearchSuggestions();
+        }
+    });
+
     // 点击外部关闭设置面板
     document.addEventListener('click', function (e) {
         const panel = document.getElementById('settingsPanel');
@@ -1350,6 +1382,11 @@ function resetSearchArea() {
     // 清理搜索结果
     document.getElementById('results').innerHTML = '';
     document.getElementById('searchInput').value = '';
+
+    // 隐藏搜索建议
+    if (typeof hideSearchSuggestions === 'function') {
+        hideSearchSuggestions();
+    }
 
     // 恢复搜索区域的样式
     document.getElementById('searchArea').classList.add('flex-1');
@@ -2085,10 +2122,8 @@ async function toggleFavorite(key, videoData) {
         if (response.ok) {
             if (action === 'add') {
                 userFavorites.add(key);
-                showToast('收藏成功', 'success');
             } else {
                 userFavorites.delete(key);
-                showToast('取消收藏成功', 'success');
             }
             // 更新收藏按钮样式
             updateFavoriteButtonStyle(key, action === 'add');

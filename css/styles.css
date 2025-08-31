@@ -1041,3 +1041,85 @@ body {
     background: rgba(156, 163, 175, 0.15);
     border-color: rgba(156, 163, 175, 0.3);
 }
+
+/* 搜索建议下拉样式 */
+#searchSuggestions {
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.search-suggestion-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.search-suggestion-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.search-suggestion-item:active {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.search-suggestion-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 12px;
+    color: #666;
+    flex-shrink: 0;
+}
+
+.search-suggestion-text {
+    flex: 1;
+    color: #e5e7eb;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-suggestion-item:hover .search-suggestion-text {
+    color: #ffffff;
+}
+
+.search-suggestion-item:hover .search-suggestion-icon {
+    color: #00ccff;
+}
+
+/* 搜索建议删除按钮样式 */
+.search-suggestion-delete {
+    color: #666;
+    transition: all 0.2s ease;
+}
+
+.search-suggestion-delete:hover {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* 搜索建议滚动条样式 */
+#searchSuggestions::-webkit-scrollbar {
+    width: 6px;
+}
+
+#searchSuggestions::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#searchSuggestions::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+#searchSuggestions::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}

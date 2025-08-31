@@ -196,56 +196,111 @@ function saveSearchHistory(query) {
         }
     }
 
-    renderSearchHistory();
+    // 搜索历史已更新，无需重新渲染
 }
 
-// 渲染最近搜索历史的增强版本
-function renderSearchHistory() {
-    const historyContainer = document.getElementById('recentSearches');
-    if (!historyContainer) return;
-
+// 显示搜索建议
+function showSearchSuggestions() {
+    const searchInput = document.getElementById('searchInput');
+    const suggestionsContainer = document.getElementById('searchSuggestions');
+    
+    if (!searchInput || !suggestionsContainer) return;
+    
+    const query = searchInput.value.trim();
+    
+    // 获取最近搜索记录
     const history = getSearchHistory();
-
-    if (history.length === 0) {
-        historyContainer.innerHTML = '';
+    
+    let matchingSearches = [];
+    
+    if (query.length === 0) {
+        // 如果查询为空，显示最近的搜索记录
+        matchingSearches = history.slice(0, 8); // 最多显示8条
+    } else {
+        // 如果有查询内容，过滤匹配的搜索记录
+        matchingSearches = history
+            .filter(item => item.text.toLowerCase().includes(query.toLowerCase()))
+            .slice(0, 8); // 最多显示8条
+    }
+    
+    if (matchingSearches.length === 0) {
+        hideSearchSuggestions();
         return;
     }
+    
+    // 生成建议列表
+    suggestionsContainer.innerHTML = matchingSearches.map(item => {
+        const isRecentHistory = query.length === 0;
+        const iconPath = isRecentHistory 
+            ? "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" // 时钟图标
+            : "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"; // 搜索图标
+        
+        return `
+            <div class="search-suggestion-item group" onclick="selectSearchSuggestion('${item.text}')">
+                <svg class="search-suggestion-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}"></path>
+                </svg>
+                <span class="search-suggestion-text">${item.text}</span>
+                ${isRecentHistory ? `
+                <button class="search-suggestion-delete opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-auto p-1 rounded-full hover:bg-red-500/20 hover:text-red-400" 
+                        onclick="event.stopPropagation(); deleteSearchHistoryItem('${item.text}')" 
+                        title="删除此搜索记录">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+    
+    // 显示建议
+    suggestionsContainer.classList.remove('hidden');
+}
 
-    // 创建一个包含标题和清除按钮的行
-    historyContainer.innerHTML = `
-        <div class="flex justify-between items-center w-full mb-2">
-            <div class="text-gray-500">最近搜索:</div>
-            <button id="clearHistoryBtn" class="text-gray-500 hover:text-white transition-colors" 
-                    onclick="clearSearchHistory()" aria-label="清除搜索历史">
-                清除搜索历史
-            </button>
-        </div>
-    `;
+// 隐藏搜索建议
+function hideSearchSuggestions() {
+    const suggestionsContainer = document.getElementById('searchSuggestions');
+    if (suggestionsContainer) {
+        suggestionsContainer.classList.add('hidden');
+    }
+}
 
-    history.forEach(item => {
-        const tag = document.createElement('button');
-        tag.className = 'search-tag';
-        tag.textContent = item.text;
+// 选择搜索建议
+function selectSearchSuggestion(term) {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = term;
+        hideSearchSuggestions();
+        search(); // 直接执行搜索
+    }
+}
 
-        // 添加时间提示（如果有时间戳）
-        if (item.timestamp) {
-            const date = new Date(item.timestamp);
-            tag.title = `搜索于: ${date.toLocaleString()}`;
-        }
-
-        tag.onclick = function () {
-            document.getElementById('searchInput').value = item.text;
-            search();
-        };
-        historyContainer.appendChild(tag);
-    });
+// 删除单个搜索历史项
+function deleteSearchHistoryItem(text) {
+    try {
+        let history = getSearchHistory();
+        
+        // 过滤掉要删除的项
+        history = history.filter(item => item.text !== text);
+        
+        // 保存回localStorage
+        localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+        
+        // 重新显示搜索建议（刷新列表）
+        showSearchSuggestions();
+        
+    } catch (e) {
+        console.error('删除搜索记录失败:', e);
+        showToast('删除搜索记录失败', 'error');
+    }
 }
 
 // 增加清除搜索历史功能
 function clearSearchHistory() {
     try {
         localStorage.removeItem(SEARCH_HISTORY_KEY);
-        renderSearchHistory();
+        hideSearchSuggestions();
         showToast('搜索历史已清除', 'success');
     } catch (e) {
         console.error('清除搜索历史失败:', e);
