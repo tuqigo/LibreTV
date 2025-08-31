@@ -807,7 +807,7 @@ function toggleSingleEpisodeUI() {
         if (prevButton) prevButton.style.display = 'none';
         if (nextButton) nextButton.style.display = 'none';
         if (lockToggle) lockToggle.style.display = 'none';
-        if (playPauseButton) playPauseButton.style.display = 'none';
+        // if (playPauseButton) playPauseButton.style.display = 'none';
 
         console.log('单集视频，已隐藏剧集相关UI元素');
     } else {
