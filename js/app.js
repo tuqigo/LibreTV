@@ -1590,7 +1590,15 @@ async function search() {
                      onclick="checkAndPlayVideo('${safeId}','${safeName}','${sourceCode}')" ${apiUrlAttr}>
                     <!-- 收藏按钮 - 移动到卡片右上角，悬停时显示 -->
                     <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10 opacity-0 group-hover:opacity-100" 
-                            onclick="event.stopPropagation(); toggleFavorite('${key}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" 
+                            onclick="event.stopPropagation(); toggleFavorite('${key}', ${JSON.stringify({
+                                vod_id: item.vod_id,
+                                source_code: item.source_code,
+                                vod_name: item.vod_name,
+                                vod_pic: item.vod_pic,
+                                type_name: item.type_name,
+                                vod_year: item.vod_year,
+                                source_name: item.source_name
+                            }).replace(/"/g, '&quot;')})" 
                             data-key="${key}">
                         <svg class="w-5 h-5 favorite-icon" ${userFavorites.has(key) ? 'fill="#fbbf24" stroke="#fbbf24"' : 'fill="none" stroke="currentColor"'} viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
@@ -2095,6 +2103,7 @@ function saveStringAsFile(content, fileName) {
 let userFavorites = new Set(); // 存储用户收藏的key
 
 // 切换收藏状态
+// 优化：收藏时只存储必要字段，减少存储空间和网络传输
 async function toggleFavorite(key, videoData) {
     try {
         // 检查用户是否已登录
@@ -2106,6 +2115,20 @@ async function toggleFavorite(key, videoData) {
         const isFavorited = userFavorites.has(key);
         const action = isFavorited ? 'remove' : 'add';
 
+        // 收藏时只存储必要信息，减少存储空间
+        let dataToStore = null;
+        if (action === 'add' && videoData) {
+            dataToStore = {
+                vod_id: videoData.vod_id,
+                source_code: videoData.source_code,
+                vod_name: videoData.vod_name,
+                vod_pic: videoData.vod_pic,
+                type_name: videoData.type_name,
+                vod_year: videoData.vod_year,
+                source_name: videoData.source_name
+            };
+        }
+
         const response = await fetch('/proxy/api/user-favorites', {
             method: 'POST',
             headers: {
@@ -2114,7 +2137,7 @@ async function toggleFavorite(key, videoData) {
             body: JSON.stringify({
                 action: action,
                 key: key,
-                data: action === 'add' ? videoData : null
+                data: dataToStore
             })
         });
 
@@ -2412,7 +2435,15 @@ function displayFavorites(favorites) {
                  data-key="${item.key}" onclick="checkAndPlayVideo('${videoData.vod_id || ''}','${safeName}','${videoData.source_code || ''}')">
                 <!-- 收藏按钮 - 移动到卡片右上角，悬停时显示 -->
                 <button class="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-all z-10 opacity-0 group-hover:opacity-100" 
-                        onclick="event.stopPropagation(); toggleFavorite('${item.key}', ${JSON.stringify(videoData).replace(/"/g, '&quot;')})" 
+                        onclick="event.stopPropagation(); toggleFavorite('${item.key}', ${JSON.stringify({
+                            vod_id: videoData.vod_id,
+                            source_code: videoData.source_code,
+                            vod_name: videoData.vod_name,
+                            vod_pic: videoData.vod_pic,
+                            type_name: videoData.type_name,
+                            vod_year: videoData.vod_year,
+                            source_name: videoData.source_name
+                        }).replace(/"/g, '&quot;')})" 
                         data-key="${item.key}">
                     <svg class="w-5 h-5 favorite-icon" ${userFavorites.has(item.key) ? 'fill="#fbbf24" stroke="#fbbf24"' : 'fill="none" stroke="currentColor"'} viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>

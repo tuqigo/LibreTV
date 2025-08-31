@@ -27,6 +27,10 @@ let progressSaveInterval = null; // 定期保存进度的计时器
 // 初始化全局分片缓存（统一从 HLS_CACHE_CONFIG 读取）
 window.__hlsSegmentCache = window.__hlsSegmentCache || (window.HlsSegmentCache ? new window.HlsSegmentCache({ maxBytes: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.maxBytes) || undefined, ttlMs: (window.HLS_CACHE_CONFIG && window.HLS_CACHE_CONFIG.ttlMs) || undefined }) : null);
 
+// 收藏相关变量
+let currentVideoInfo = null; // 当前视频信息
+let isCurrentVideoFavorited = false; // 当前视频是否已收藏
+
 
 // 监听认证成功事件
 document.addEventListener('authVerified', () => {
@@ -135,6 +139,21 @@ function initializePageContent() {
     // 设置页面标题
     document.title = currentVideoTitle + ' - LibreTV播放器';
     document.getElementById('videoTitle').textContent = currentVideoTitle;
+
+    // 构建当前视频信息用于收藏功能
+    const sourceName = urlParams.get('source') || '';
+    currentVideoInfo = {
+        vod_id: vodId || '',
+        source_code: sourceCode || '',
+        vod_name: currentVideoTitle,
+        vod_pic: '', // 播放页面暂时不需要封面
+        type_name: '', // 暂时不获取类型
+        vod_year: '', // 暂时不获取年份
+        source_name: sourceName
+    };
+
+    // 检查当前视频是否已被收藏
+    checkCurrentVideoFavoriteStatus();
 
     // 初始化播放器
     if (videoUrl) {
@@ -1507,4 +1526,195 @@ function updateEpisodesToggleButton(isVisible) {
             episodesToggle.classList.remove('active');
         }
     }
+}
+
+// =================================
+// ========== 收藏功能 ===========
+// =================================
+
+// 检查当前视频是否已被收藏
+async function checkCurrentVideoFavoriteStatus() {
+    if (!currentVideoInfo || !currentVideoInfo.vod_id || !currentVideoInfo.source_code) {
+        console.log('视频信息不完整，无法检查收藏状态');
+        return;
+    }
+
+    try {
+        // 生成收藏key
+        const favoriteKey = `${currentVideoInfo.vod_id}_${currentVideoInfo.source_code}`;
+        
+        // 检查本地收藏状态
+        const response = await fetch('/proxy/api/user-favorites/batch-check', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ keys: [favoriteKey] })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            isCurrentVideoFavorited = data.favorites[favoriteKey] || false;
+            updateFavoriteButtonState();
+        }
+
+        // 获取完整的视频信息来填充收藏数据
+        await fetchAndFillVideoDetails();
+    } catch (error) {
+        console.error('检查收藏状态失败:', error);
+    }
+}
+
+// 切换收藏状态
+async function toggleFavorite() {
+    if (!currentVideoInfo || !currentVideoInfo.vod_id || !currentVideoInfo.source_code) {
+        console.log('视频信息不完整，无法收藏');
+        return;
+    }
+
+    try {
+        // 检查用户是否已登录
+        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
+            alert('请先登录后再使用收藏功能');
+            return;
+        }
+
+        // 生成收藏key
+        const favoriteKey = `${currentVideoInfo.vod_id}_${currentVideoInfo.source_code}`;
+        const action = isCurrentVideoFavorited ? 'remove' : 'add';
+
+        const response = await fetch('/proxy/api/user-favorites', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: action,
+                key: favoriteKey,
+                data: action === 'add' ? currentVideoInfo : null
+            })
+        });
+
+        if (response.ok) {
+            isCurrentVideoFavorited = !isCurrentVideoFavorited;
+            updateFavoriteButtonState();
+        } else {
+            const errorData = await response.json();
+            showToast(`操作失败: ${errorData.error || '未知错误'}`, 'error');
+        }
+    } catch (error) {
+        console.error('收藏操作失败:', error);
+        showToast('网络错误，请稍后重试', 'error');
+    }
+}
+
+// 更新收藏按钮状态
+function updateFavoriteButtonState() {
+    const favoriteIcon = document.getElementById('favoriteIcon');
+    if (favoriteIcon) {
+        if (isCurrentVideoFavorited) {
+            // 已收藏状态：实心五角星
+            favoriteIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="#fbbf24" stroke="#fbbf24" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.563 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />';
+        } else {
+            // 未收藏状态：空心五角星
+            favoriteIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />';
+        }
+    }
+}
+
+// 获取并填充完整的视频信息
+async function fetchAndFillVideoDetails() {
+    if (!currentVideoInfo || !currentVideoInfo.vod_id || !currentVideoInfo.source_code) {
+        console.log('视频信息不完整，无法获取详细信息');
+        return;
+    }
+
+    try {
+        // 构建API请求URL
+        let apiUrl = `/api/detail?id=${encodeURIComponent(currentVideoInfo.vod_id)}`;
+        
+        // 处理自定义API源
+        if (currentVideoInfo.source_code.startsWith('custom_')) {
+            const customIndex = currentVideoInfo.source_code.replace('custom_', '');
+            const customApi = getCustomApiInfo(customIndex);
+            if (customApi) {
+                apiUrl += `&customApi=${encodeURIComponent(customApi.url)}`;
+                if (customApi.detail) {
+                    apiUrl += `&customDetail=${encodeURIComponent(customApi.detail)}`;
+                }
+                apiUrl += '&source=custom';
+            }
+        } else {
+            // 内置API
+            apiUrl += `&source=${encodeURIComponent(currentVideoInfo.source_code)}`;
+        }
+
+        const response = await fetch(apiUrl);
+        if (response.ok) {
+            const data = await response.json();
+            // 检查不同的数据结构
+            let videoDetail = null;
+            
+            if (data.videoInfo) {
+                // 新结构：data.videoInfo
+                videoDetail = data.videoInfo;
+            } 
+            
+            if (videoDetail) {
+                // 更新当前视频信息，填充缺失的字段
+                const updatedInfo = {
+                    ...currentVideoInfo,
+                    vod_pic: videoDetail.cover || '',
+                    type_name: videoDetail.type || '',
+                    vod_year: videoDetail.year || '',
+                    // 保持原有的必需字段
+                    vod_id: currentVideoInfo.vod_id,
+                    source_code: currentVideoInfo.source_code,
+                    vod_name: currentVideoInfo.vod_name,
+                    source_name: currentVideoInfo.source_name
+                };
+                // 更新全局变量
+                currentVideoInfo = updatedInfo;
+            } else {
+                console.warn('无法从API返回数据中提取视频信息:', data);
+            }
+        } else {
+            console.warn('获取视频详细信息失败:', response.status);
+        }
+    } catch (error) {
+        console.error('获取视频详细信息出错:', error);
+    }
+}
+
+// 获取自定义API信息的辅助函数
+function getCustomApiInfo(index) {
+    try {
+        // 从localStorage获取自定义API配置
+        const customApis = JSON.parse(localStorage.getItem('customApis') || '[]');
+        const result = customApis[index] || null;
+        return result;
+    } catch (error) {
+        console.error('获取自定义API信息失败:', error);
+        return null;
+    }
+}
+
+// 显示提示消息
+function showToast(message, type = 'info') {
+    // 简单的提示实现
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white z-50 ${
+        type === 'success' ? 'bg-green-500' : 
+        type === 'error' ? 'bg-red-500' : 
+        'bg-blue-500'
+    }`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 3000);
 }
