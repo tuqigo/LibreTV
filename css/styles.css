@@ -101,6 +101,72 @@ button, .card-hover {
     transform: scale(1.1);
 }
 
+/* 首页内容选择器 Segmented Control 样式 */
+#contentToggleSlider {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
+    will-change: transform;
+    backdrop-filter: blur(4px);
+    width: calc(33.333% - 2px) !important;
+}
+
+/* 内容选择器按钮悬停效果 - 已合并到下方 */
+
+/* 确保滑块在按钮下方正确显示 */
+#contentToggle1,
+#contentToggle2,
+#contentToggle3 {
+    position: relative;
+    z-index: 10;
+    user-select: none;
+}
+
+/* 内容选择器容器悬停效果 */
+#contentToggle1:hover ~ #contentToggleSlider,
+#contentToggle2:hover ~ #contentToggleSlider,
+#contentToggle3:hover ~ #contentToggleSlider {
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.4);
+}
+
+/* 内容选择器整体容器样式 */
+#contentToggle1:focus,
+#contentToggle2:focus,
+#contentToggle3:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: rgba(236, 72, 153, 0.5);
+}
+
+/* 内容选择器容器悬停效果 */
+#contentToggle1:hover,
+#contentToggle2:hover,
+#contentToggle3:hover {
+    transform: translateY(-1px);
+    transition: transform 0.2s ease;
+}
+
+/* 内容选择器按钮点击效果 */
+#contentToggle1:active,
+#contentToggle2:active,
+#contentToggle3:active {
+    transform: translateY(0);
+    transition: transform 0.1s ease;
+}
+
+/* 确保 Segmented Control 容器占满整行 */
+#contentToggle1,
+#contentToggle2,
+#contentToggle3 {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 确保滑块位置计算准确 */
+#contentToggleSlider {
+    left: 1px;
+    top: 1px;
+}
+
 .gradient-text {
     background: linear-gradient(to right, var(--primary-color), var(--accent-color));
     -webkit-background-clip: text;

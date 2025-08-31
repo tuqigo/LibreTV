@@ -2193,26 +2193,33 @@ function updateContentToggleState(state) {
     const contentToggle1 = document.getElementById('contentToggle1');
     const contentToggle2 = document.getElementById('contentToggle2');
     const contentToggle3 = document.getElementById('contentToggle3');
+    const contentToggleSlider = document.getElementById('contentToggleSlider');
     
-    if (!contentToggle1 || !contentToggle2 || !contentToggle3) return;
+    if (!contentToggle1 || !contentToggle2 || !contentToggle3 || !contentToggleSlider) return;
     
-    // 重置所有按钮状态
-    contentToggle1.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
-    contentToggle2.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
-    contentToggle3.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
+    // 重置所有按钮文字颜色
+    contentToggle1.className = 'relative z-10 px-4 py-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-all duration-200 flex-1 text-center';
+    contentToggle2.className = 'relative z-10 px-4 py-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-all duration-200 flex-1 text-center';
+    contentToggle3.className = 'relative z-10 px-4 py-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-all duration-200 flex-1 text-center';
     
-    // 设置当前选中状态
+    // 设置当前选中状态和滑块位置
     switch (state) {
         case 'douban':
-            contentToggle1.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            contentToggle1.className = 'relative z-10 px-4 py-2 text-xs font-medium text-white transition-all duration-200 flex-1 text-center';
+            contentToggleSlider.style.transform = 'translateX(0)';
             break;
         case 'favorites':
-            contentToggle2.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            contentToggle2.className = 'relative z-10 px-4 py-2 text-xs font-medium text-white transition-all duration-200 flex-1 text-center';
+            contentToggleSlider.style.transform = 'translateX(100%)';
             break;
         case 'search':
-            contentToggle3.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            contentToggle3.className = 'relative z-10 px-4 py-2 text-xs font-medium text-white transition-all duration-200 flex-1 text-center';
+            contentToggleSlider.style.transform = 'translateX(200%)';
             break;
     }
+    
+    // 调试信息
+    console.log(`Content toggle state updated to: ${state}, slider position: ${contentToggleSlider.style.transform}`);
 }
 
 // 根据设置更新豆瓣区域和收藏列表的显示状态
