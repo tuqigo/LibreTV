@@ -63,32 +63,21 @@
         <!-- 添加自动播放开关、播放控制按钮和功能按钮 -->
         <div class="player-container mb-2"  style="margin-top: 12px;">
             <div class="flex items-center justify-between relative button-layout">
-                <!-- 左侧按钮组：集数切换、倒序排列 -->
+                <!-- 左侧按钮组：集数网格切换和排序一体化按钮 -->
                 <div class="flex items-center gap-2 left-buttons">
-                    <!-- 集数网格切换按钮 -->
-                    <button id="episodesToggle" onclick="toggleEpisodesGrid()"
-                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
-                        title="显示/隐藏集数">
+                    <!-- 集数网格切换和排序一体化按钮 -->
+                    <button id="episodesToggle" onclick="toggleEpisodesGridAndOrder()"
+                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center gap-2"
+                        title="显示/隐藏集数网格，点击箭头切换排序">
+                        <!-- 网格图标 -->
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
                         </svg>
-                    </button>
-
-                    <!-- 倒序排列按钮 -->
-                    <button onclick="toggleEpisodeOrder()"
-                        class="p-2 bg-[#222] hover:bg-[#333] border border-[#333] rounded-lg transition-colors flex items-center justify-center"
-                        title="集数排序" id="orderButton">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" id="orderIcon" viewBox="0 0 20 20"
-                            fill="currentColor">
-                            <!-- 默认状态：向上箭头（正序） -->
-                            <path fill-rule="evenodd" id="orderIconUp"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z"
-                                clip-rule="evenodd" />
-                            <!-- 倒序状态：向下箭头 -->
-                            <path fill-rule="evenodd" id="orderIconDown" style="display: none;"
-                                d="M10 2a8 8 0 100 16 8 8 0 000-16zm-1 9a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1zm1-3a1 1 0 100 2h2a1 1 0 100-2h-2z"
-                                clip-rule="evenodd" />
+                        <!-- 排序箭头 -->
+                        <svg class="w-4 h-4 episode-order-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M7 14l5-5 5 5"></path>
                         </svg>
                     </button>
                 </div>

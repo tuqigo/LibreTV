@@ -123,7 +123,8 @@ function initializePageContent() {
         // 更新当前索引为验证过的值
         currentEpisodeIndex = index;
 
-        episodesReversed = localStorage.getItem('episodesReversed') === 'true';
+        // 默认使用正序排列
+        episodesReversed = false;
     } catch (e) {
         console.error('获取集数信息失败:', e);
         currentEpisodes = [];
@@ -165,8 +166,12 @@ function initializePageContent() {
     // 更新按钮状态
     updateButtonStates();
 
-    // 更新排序按钮状态
-    updateOrderButton();
+    // 更新排序箭头状态
+    const episodesToggle = document.getElementById('episodesToggle');
+    if (episodesToggle) {
+        const orderArrow = episodesToggle.querySelector('.episode-order-arrow');
+        updateOrderArrow(orderArrow);
+    }
 
     // 控制单集视频时的UI显示
     toggleSingleEpisodeUI();
@@ -974,34 +979,44 @@ function copyLinks() {
     }
 }
 
-// 切换集数排序
-function toggleEpisodeOrder() {
-    episodesReversed = !episodesReversed;
+// 集数网格切换和排序一体化功能
+function toggleEpisodesGridAndOrder() {
+    const episodesGrid = document.getElementById('episodesGrid');
+    const episodesToggle = document.getElementById('episodesToggle');
+    const orderArrow = episodesToggle.querySelector('.episode-order-arrow');
 
-    // 保存到localStorage
-    localStorage.setItem('episodesReversed', episodesReversed);
-
-    // 重新渲染集数列表
-    renderEpisodes();
-
-    // 更新排序按钮
-    updateOrderButton();
+    if (episodesGrid && episodesToggle) {
+        const isVisible = !episodesGrid.classList.contains('hidden');
+        
+        if (isVisible) {
+            // 如果网格已显示，点击箭头切换排序
+            episodesReversed = !episodesReversed;
+            
+            // 重新渲染集数列表
+            renderEpisodes();
+            
+            // 更新箭头方向
+            updateOrderArrow(orderArrow);
+        } else {
+            // 如果网格隐藏，显示网格
+            episodesGrid.classList.remove('hidden');
+            episodesToggle.classList.add('active');
+            episodesGridVisible = true;
+        }
+    } else {
+        console.error('找不到必要的元素:', { episodesGrid, episodesToggle });
+    }
 }
 
-// 更新排序按钮状态
-function updateOrderButton() {
-    const orderIconUp = document.getElementById('orderIconUp');
-    const orderIconDown = document.getElementById('orderIconDown');
-
-    if (orderIconUp && orderIconDown) {
+// 更新排序箭头状态
+function updateOrderArrow(orderArrow) {
+    if (orderArrow) {
         if (episodesReversed) {
             // 倒序状态：显示向下箭头
-            orderIconUp.style.display = 'none';
-            orderIconDown.style.display = 'block';
+            orderArrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 10l-5 5-5-5"></path>';
         } else {
             // 正序状态：显示向上箭头
-            orderIconUp.style.display = 'block';
-            orderIconDown.style.display = 'none';
+            orderArrow.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 14l5-5 5 5"></path>';
         }
     }
 }
@@ -1464,11 +1479,14 @@ function toggleEpisodesGrid() {
 function updateEpisodesToggleButton(isVisible) {
     const episodesGrid = document.getElementById('episodesGrid');
     const episodesToggle = document.getElementById('episodesToggle');
+    const orderArrow = episodesToggle.querySelector('.episode-order-arrow');
 
     if (episodesGrid && episodesToggle) {
         if (isVisible) {
             episodesGrid.classList.remove('hidden');
             episodesToggle.classList.add('active');
+            // 更新箭头状态
+            updateOrderArrow(orderArrow);
         } else {
             episodesGrid.classList.add('hidden');
             episodesToggle.classList.remove('active');

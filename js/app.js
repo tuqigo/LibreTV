@@ -1929,7 +1929,6 @@ function playVideo(url, vod_name, sourceCode, episodeIndex = 0, sourceName = '',
     localStorage.setItem('currentVideoTitle', currentVideoTitle);
     localStorage.setItem('currentEpisodeIndex', episodeIndex);
     localStorage.setItem('currentEpisodes', JSON.stringify(currentEpisodes));
-    localStorage.setItem('episodesReversed', episodesReversed);
 
     // 构建视频信息对象，使用标题作为唯一标识
     const videoTitle = vod_name || currentVideoTitle;
