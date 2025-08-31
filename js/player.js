@@ -989,14 +989,10 @@ function toggleEpisodesGridAndOrder() {
         const isVisible = !episodesGrid.classList.contains('hidden');
         
         if (isVisible) {
-            // 如果网格已显示，点击箭头切换排序
-            episodesReversed = !episodesReversed;
-            
-            // 重新渲染集数列表
-            renderEpisodes();
-            
-            // 更新箭头方向
-            updateOrderArrow(orderArrow);
+            // 如果网格已显示，隐藏网格
+            episodesGrid.classList.add('hidden');
+            episodesToggle.classList.remove('active');
+            episodesGridVisible = false;
         } else {
             // 如果网格隐藏，显示网格
             episodesGrid.classList.remove('hidden');
@@ -1005,6 +1001,25 @@ function toggleEpisodesGridAndOrder() {
         }
     } else {
         console.error('找不到必要的元素:', { episodesGrid, episodesToggle });
+    }
+}
+
+// 切换集数排序（点击箭头时调用）
+function toggleEpisodeOrder(event) {
+    // 阻止事件冒泡，避免触发父按钮的点击事件
+    event.stopPropagation();
+    
+    // 切换排序状态
+    episodesReversed = !episodesReversed;
+    
+    // 重新渲染集数列表
+    renderEpisodes();
+    
+    // 更新箭头方向
+    const episodesToggle = document.getElementById('episodesToggle');
+    if (episodesToggle) {
+        const orderArrow = episodesToggle.querySelector('.episode-order-arrow');
+        updateOrderArrow(orderArrow);
     }
 }
 

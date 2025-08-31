@@ -309,17 +309,6 @@ input:checked+.slider:before {
     min-height: 40px;
 }
 
-/* 功能按钮激活状态 */
-#episodesToggle.active {
-    background-color: #00ccff !important;
-    border-color: #00ccff !important;
-    color: white;
-}
-
-#episodesToggle.active:hover {
-    background-color: #00aacc !important;
-}
-
 /* 视频播放区和控制按钮之间的间距 */
 .player-spacing-small {
     height: 1.0rem;
