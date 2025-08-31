@@ -55,30 +55,6 @@ const doubanPageSize = 16; // 一次显示的项目数量
 
 // 初始化豆瓣功能
 function initDouban() {
-    // 设置内容选择器的初始状态
-    const contentToggle1 = document.getElementById('contentToggle1');
-    const contentToggle2 = document.getElementById('contentToggle2');
-    const contentToggle3 = document.getElementById('contentToggle3');
-    
-    if (contentToggle1 && contentToggle2 && contentToggle3) {
-        // 从localStorage获取当前选择的状态，默认为豆瓣热门
-        const currentState = localStorage.getItem('contentDisplayState') || 'douban';
-        
-        // 设置初始状态
-        updateContentToggleState(currentState);
-        
-        // 添加事件监听
-        contentToggle1.addEventListener('click', () => setContentDisplay('douban'));
-        contentToggle2.addEventListener('click', () => setContentDisplay('favorites'));
-        contentToggle3.addEventListener('click', () => setContentDisplay('search'));
-        
-        // 初始更新显示状态
-        updateContentVisibility(currentState);
-
-        // 滚动到页面顶部
-        window.scrollTo(0, 0);
-    }
-
     // 加载用户标签
     loadUserTags();
 
@@ -91,116 +67,31 @@ function initDouban() {
     // 换一批按钮事件监听
     setupDoubanRefreshBtn();
     
-    // 收藏列表刷新按钮事件监听
-    setupFavoritesRefreshBtn();
-    
-    // 初始加载热门内容
+    // 初始加载热门内容（如果当前显示豆瓣内容）
     const currentState = localStorage.getItem('contentDisplayState') || 'douban';
     if (currentState === 'douban') {
         renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
     }
 }
 
-// 设置内容显示状态
-function setContentDisplay(state) {
-    localStorage.setItem('contentDisplayState', state);
-    updateContentToggleState(state);
-    updateContentVisibility(state);
-}
-
-// 更新内容选择器的按钮状态
-function updateContentToggleState(state) {
-    const contentToggle1 = document.getElementById('contentToggle1');
-    const contentToggle2 = document.getElementById('contentToggle2');
-    const contentToggle3 = document.getElementById('contentToggle3');
-    
-    if (!contentToggle1 || !contentToggle2 || !contentToggle3) return;
-    
-    // 重置所有按钮状态
-    contentToggle1.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
-    contentToggle2.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
-    contentToggle3.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
-    
-    // 设置当前选中状态
-    switch (state) {
-        case 'douban':
-            contentToggle1.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
-            break;
-        case 'favorites':
-            contentToggle2.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
-            break;
-        case 'search':
-            contentToggle3.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
-            break;
-    }
-}
-
-// 防止重复加载收藏列表的标志
-let isFavoritesLoading = false;
-
-// 根据设置更新豆瓣区域和收藏列表的显示状态
-function updateContentVisibility(state) {
-    const doubanArea = document.getElementById('doubanArea');
-    const favoritesArea = document.getElementById('favoritesArea');
-    const contentToggleLabel = document.getElementById('contentToggleLabel');
-
-    if (!doubanArea || !favoritesArea) return;
-
-    const isSearching = document.getElementById('resultsArea') &&
-        !document.getElementById('resultsArea').classList.contains('hidden');
-
-    // 搜索时隐藏所有内容区域
-    if (isSearching) {
-        doubanArea.classList.add('hidden');
-        favoritesArea.classList.add('hidden');
-        return;
-    }
-
-    // 根据选择的状态显示对应内容
-    switch (state) {
-        case 'douban':
-            doubanArea.classList.remove('hidden');
-            favoritesArea.classList.add('hidden');
-            contentToggleLabel.textContent = '豆瓣热门推荐';
-            // 如果豆瓣结果为空，重新加载
-            if (document.getElementById('douban-results').children.length === 0) {
-                renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
-            }
-            break;
-        case 'favorites':
-            doubanArea.classList.add('hidden');
-            favoritesArea.classList.remove('hidden');
-            contentToggleLabel.textContent = '用户收藏列表';
-            // 防止重复加载收藏列表
-            if (!isFavoritesLoading) {
-                const favoritesResults = document.getElementById('favorites-results');
-                if (!favoritesResults || favoritesResults.children.length === 0 ||
-                    favoritesResults.querySelector('.text-gray-500')) {
-                    console.log('Loading user favorites...');
-                    isFavoritesLoading = true;
-                    loadUserFavorites().finally(() => {
-                        console.log('User favorites loaded');
-                        isFavoritesLoading = false;
-                    });
-                } else {
-                    console.log('Favorites already loaded, skipping API call');
-                }
-            } else {
-                console.log('Favorites loading in progress, skipping duplicate call');
-            }
-            break;
-        case 'search':
-            doubanArea.classList.add('hidden');
-            favoritesArea.classList.add('hidden');
-            contentToggleLabel.textContent = '仅显示搜索框';
-            break;
-    }
-}
-
-// 兼容旧版本的函数名
+// 豆瓣功能专用：只处理豆瓣内容的显示/隐藏
 function updateDoubanVisibility() {
-    const state = localStorage.getItem('contentDisplayState') || 'douban';
-    updateContentVisibility(state);
+    const doubanArea = document.getElementById('doubanArea');
+    if (!doubanArea) return;
+    
+    const currentState = localStorage.getItem('contentDisplayState') || 'douban';
+    
+    // 只处理豆瓣区域的显示逻辑
+    if (currentState === 'douban') {
+        doubanArea.classList.remove('hidden');
+        // 如果豆瓣结果为空，重新加载
+        if (document.getElementById('douban-results') && 
+            document.getElementById('douban-results').children.length === 0) {
+            renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
+        }
+    } else {
+        doubanArea.classList.add('hidden');
+    }
 }
 
 // 只填充搜索框，不执行搜索，让用户自主决定搜索时机
@@ -251,32 +142,6 @@ async function fillAndSearchWithDouban(title) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
-    
-    // 确保豆瓣资源API被选中
-    // if (typeof selectedAPIs !== 'undefined' && !selectedAPIs.includes('dbzy')) {
-    //     // 在设置中勾选豆瓣资源API复选框
-    //     const doubanCheckbox = document.querySelector('input[id="api_dbzy"]');
-    //     if (doubanCheckbox) {
-    //         doubanCheckbox.checked = true;
-            
-    //         // 触发updateSelectedAPIs函数以更新状态
-    //         if (typeof updateSelectedAPIs === 'function') {
-    //             updateSelectedAPIs();
-    //         } else {
-    //             // 如果函数不可用，则手动添加到selectedAPIs
-    //             selectedAPIs.push('dbzy');
-    //             localStorage.setItem('selectedAPIs', JSON.stringify(selectedAPIs));
-                
-    //             // 更新选中API计数（如果有这个元素）
-    //             const countEl = document.getElementById('selectedAPICount');
-    //             if (countEl) {
-    //                 countEl.textContent = selectedAPIs.length;
-    //             }
-    //         }
-            
-    //         showToast('已自动选择豆瓣资源API', 'info');
-    //     }
-    // }
     
     // 填充搜索框并执行搜索
     const input = document.getElementById('searchInput');
@@ -609,9 +474,11 @@ function renderDoubanCards(data, container) {
 function resetToHome() {
     console.log('Resetting to home...');
     resetSearchArea();
-    // 避免重复调用，直接获取当前状态并更新
-    const currentState = localStorage.getItem('contentDisplayState') || 'douban';
-    updateContentVisibility(currentState);
+    // 调用 app.js 中的内容切换函数
+    if (typeof updateContentVisibility === 'function') {
+        const currentState = localStorage.getItem('contentDisplayState') || 'douban';
+        updateContentVisibility(currentState);
+    }
 }
 
 // 加载豆瓣首页内容
@@ -830,22 +697,4 @@ function resetTagsToDefault() {
     showToast('已恢复默认标签', 'success');
 }
 
-// 设置收藏列表刷新按钮事件监听
-function setupFavoritesRefreshBtn() {
-    const favoritesRefreshBtn = document.getElementById('favorites-refresh');
-    if (favoritesRefreshBtn) {
-        favoritesRefreshBtn.addEventListener('click', function() {
-            if (!isFavoritesLoading) {
-                console.log('Refreshing favorites...');
-                isFavoritesLoading = true;
-                loadUserFavorites().finally(() => {
-                    console.log('Favorites refreshed');
-                    isFavoritesLoading = false;
-                });
-                showToast('收藏列表已刷新', 'success');
-            } else {
-                console.log('Favorites refresh in progress, skipping duplicate call');
-            }
-        });
-    }
-}
+// 收藏相关功能已移动到 app.js，此函数已删除

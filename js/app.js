@@ -659,16 +659,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // 设置事件监听器
     setupEventListeners();
 
-    // 初始化豆瓣功能（包括收藏功能）
+    // 设置收藏列表刷新按钮事件监听
+    setupFavoritesRefreshBtn();
+
+    // 初始化豆瓣功能
     if (typeof initDouban === 'function') {
         initDouban();
     }
 
+    // 初始化页面内容切换功能
+    initContentSwitcher();
+
     // 初始化用户收藏状态（如果用户已登录）
     if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
+        // 延迟预加载收藏状态，确保搜索结果中的收藏按钮能正确显示
         setTimeout(() => {
-            loadUserFavorites();
-        }, 500);
+            preloadUserFavorites();
+        }, 1000);
     }
 
     // 初始检查成人API选中状态
@@ -2145,8 +2152,147 @@ async function batchCheckFavorites(keys) {
     }
 }
 
-// 加载用户收藏列表
-async function loadUserFavorites() {
+// 页面内容切换管理
+let isFavoritesLoading = false;
+
+// 初始化页面内容切换功能
+function initContentSwitcher() {
+    const contentToggle1 = document.getElementById('contentToggle1');
+    const contentToggle2 = document.getElementById('contentToggle2');
+    const contentToggle3 = document.getElementById('contentToggle3');
+    
+    if (contentToggle1 && contentToggle2 && contentToggle3) {
+        // 从localStorage获取当前选择的状态，默认为豆瓣热门
+        const currentState = localStorage.getItem('contentDisplayState') || 'douban';
+        
+        // 设置初始状态
+        updateContentToggleState(currentState);
+        
+        // 添加事件监听
+        contentToggle1.addEventListener('click', () => setContentDisplay('douban'));
+        contentToggle2.addEventListener('click', () => setContentDisplay('favorites'));
+        contentToggle3.addEventListener('click', () => setContentDisplay('search'));
+        
+        // 初始更新显示状态
+        updateContentVisibility(currentState);
+
+        // 滚动到页面顶部
+        window.scrollTo(0, 0);
+    }
+}
+
+// 设置内容显示状态
+function setContentDisplay(state) {
+    localStorage.setItem('contentDisplayState', state);
+    updateContentToggleState(state);
+    updateContentVisibility(state);
+}
+
+// 更新内容选择器的按钮状态
+function updateContentToggleState(state) {
+    const contentToggle1 = document.getElementById('contentToggle1');
+    const contentToggle2 = document.getElementById('contentToggle2');
+    const contentToggle3 = document.getElementById('contentToggle3');
+    
+    if (!contentToggle1 || !contentToggle2 || !contentToggle3) return;
+    
+    // 重置所有按钮状态
+    contentToggle1.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
+    contentToggle2.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
+    contentToggle3.className = 'px-2 py-1 text-xs rounded bg-[#333] text-gray-300 hover:text-white';
+    
+    // 设置当前选中状态
+    switch (state) {
+        case 'douban':
+            contentToggle1.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            break;
+        case 'favorites':
+            contentToggle2.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            break;
+        case 'search':
+            contentToggle3.className = 'px-2 py-1 text-xs rounded bg-pink-600 text-white';
+            break;
+    }
+}
+
+// 根据设置更新豆瓣区域和收藏列表的显示状态
+function updateContentVisibility(state) {
+    const doubanArea = document.getElementById('doubanArea');
+    const favoritesArea = document.getElementById('favoritesArea');
+
+    if (!doubanArea || !favoritesArea) return;
+
+    const isSearching = document.getElementById('resultsArea') &&
+        !document.getElementById('resultsArea').classList.contains('hidden');
+
+    // 搜索时隐藏所有内容区域
+    if (isSearching) {
+        doubanArea.classList.add('hidden');
+        favoritesArea.classList.add('hidden');
+        return;
+    }
+
+    // 根据选择的状态显示对应内容
+    switch (state) {
+        case 'douban':
+            doubanArea.classList.remove('hidden');
+            favoritesArea.classList.add('hidden');
+            // 调用豆瓣的更新函数
+            if (typeof updateDoubanVisibility === 'function') {
+                updateDoubanVisibility();
+            }
+            break;
+        case 'favorites':
+            doubanArea.classList.add('hidden');
+            favoritesArea.classList.remove('hidden');
+            // 防止重复加载收藏列表
+            if (!isFavoritesLoading) {
+                const favoritesResults = document.getElementById('favorites-results');
+                if (!favoritesResults || favoritesResults.children.length === 0 ||
+                    favoritesResults.querySelector('.text-gray-500')) {
+                    console.log('Loading user favorites...');
+                    isFavoritesLoading = true;
+                    // 调用 loadUserFavorites(true) 来显示收藏列表
+                    loadUserFavorites(true).finally(() => {
+                        console.log('User favorites loaded');
+                        isFavoritesLoading = false;
+                    });
+                } else {
+                    console.log('Favorites already loaded, skipping API call');
+                }
+            } else {
+                console.log('Favorites loading in progress, skipping duplicate call');
+            }
+            break;
+        case 'search':
+            doubanArea.classList.add('hidden');
+            favoritesArea.classList.add('hidden');
+            break;
+    }
+}
+
+// 设置收藏列表刷新按钮事件监听
+function setupFavoritesRefreshBtn() {
+    const favoritesRefreshBtn = document.getElementById('favorites-refresh');
+    if (favoritesRefreshBtn) {
+        favoritesRefreshBtn.addEventListener('click', function() {
+            if (!isFavoritesLoading) {
+                console.log('Refreshing favorites...');
+                isFavoritesLoading = true;
+                loadUserFavorites(true).finally(() => {
+                    console.log('Favorites refreshed');
+                    isFavoritesLoading = false;
+                });
+                showToast('收藏列表已刷新', 'success');
+            } else {
+                console.log('Favorites refresh in progress, skipping duplicate call');
+            }
+        });
+    }
+}
+
+// 预加载用户收藏状态（不显示列表，只填充 userFavorites 集合）
+async function preloadUserFavorites() {
     try {
         if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
             return;
@@ -2164,7 +2310,36 @@ async function loadUserFavorites() {
                     }
                 });
             }
-            displayFavorites(data.favorites);
+            console.log('User favorites preloaded:', userFavorites.size, 'items');
+        }
+    } catch (error) {
+        console.error('预加载收藏状态失败:', error);
+    }
+}
+
+// 加载用户收藏列表
+async function loadUserFavorites(showFavorites = true) {
+    try {
+        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
+            return;
+        }
+
+        const response = await fetch('/proxy/api/user-favorites');
+        if (response.ok) {
+            const data = await response.json();
+            // 清空并重新填充 userFavorites 集合
+            userFavorites.clear();
+            if (data.favorites && Array.isArray(data.favorites)) {
+                data.favorites.forEach(item => {
+                    if (item.key) {
+                        userFavorites.add(item.key);
+                    }
+                });
+            }
+            // 只有在需要显示收藏列表时才调用 displayFavorites
+            if (showFavorites) {
+                displayFavorites(data.favorites);
+            }
         }
     } catch (error) {
         console.error('加载收藏列表失败:', error);
