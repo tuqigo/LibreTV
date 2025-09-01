@@ -395,12 +395,39 @@ async function handleSpecialSourceDetail(id, sourceCode) {
             return parenIndex > 0 ? link.substring(0, parenIndex) : link;
         });
 
-        // 提取可能存在的标题、简介等基本信息
+        // 提取基本信息
         const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
         const titleText = titleMatch ? titleMatch[1].trim() : '';
 
-        const descMatch = html.match(/<div[^>]*class=["']sketch["'][^>]*>([\s\S]*?)<\/div>/);
-        const descText = descMatch ? descMatch[1].replace(/<[^>]+>/g, ' ').trim() : '';
+        // 提取描述 - 从剧情介绍部分获取
+        const descMatch = html.match(/<div[^>]*class=["']max-h-\[290px\][^>]*>([\s\S]*?)<\/div>/);
+        let descText = '';
+        if (descMatch) {
+            const pMatch = descMatch[1].match(/<p>([\s\S]*?)<\/p>/);
+            descText = pMatch ? pMatch[1].trim() : '';
+        }
+
+        // 提取封面URL - 直接匹配图片URL
+        const coverMatch = html.match(/<main[\s\S]*?<img[^>]*src=["']([^"']+)["'][^>]*>/i);
+        const coverUrl = coverMatch ? coverMatch[1] : '';
+
+
+        // 提取年代和类型 - 从表格中提取
+        let year = '';
+        let type = '';
+
+        // 提取年代
+        const yearMatch = html.match(/<td[^>]*>\s*年代[^<]*<\/td>\s*<td[^>]*>([^<]+)<\/td>/);
+        year = yearMatch ? yearMatch[1].trim() : '';
+
+        // 提取类型
+        const typeMatch = html.match(/<td[^>]*>\s*类型[^<]*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/);
+        if (typeMatch) {
+            // 移除HTML标签，只保留文本内容
+            type = typeMatch[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+            // 移除可能的&nbsp;
+            type = type.replace(/&nbsp;/g, '').trim();
+        }
 
         return JSON.stringify({
             code: 200,
@@ -410,7 +437,10 @@ async function handleSpecialSourceDetail(id, sourceCode) {
                 title: titleText,
                 desc: descText,
                 source_name: API_SITES[sourceCode].name,
-                source_code: sourceCode
+                source_code: sourceCode,
+                cover: coverUrl,
+                type: type,
+                year: year
             }
         });
     } catch (error) {

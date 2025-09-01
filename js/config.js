@@ -38,9 +38,9 @@ const API_SITES = {
         name: '卧龙资源',
     },
     dyttzy: {
-        api: 'http://caiji.dyttzyapi.com',
+        api: 'https://caiji.dyttzyapi.com',
         name: '电影天堂资源',
-        detail: 'http://caiji.dyttzyapi.com',
+        detail: 'https://caiji.dyttzyapi.com',
     },
     ruyi: {
         api: 'https://cj.rycjapi.com',
