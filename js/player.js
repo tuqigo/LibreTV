@@ -850,6 +850,41 @@ function renderEpisodes() {
     });
 
     episodesList.innerHTML = html;
+    
+    // 滚动到当前播放的集数
+    scrollToCurrentEpisode();
+}
+
+// 滚动到当前播放的集数
+function scrollToCurrentEpisode() {
+    // 延迟执行，确保DOM已经更新
+    setTimeout(() => {
+        const currentEpisodeBtn = document.getElementById(`episode-${currentEpisodeIndex}`);
+        const episodeGrid = document.querySelector('.episode-grid');
+        
+        if (!currentEpisodeBtn || !episodeGrid) {
+            return;
+        }
+        
+        // 获取当前按钮相对于网格容器的位置
+        const btnRect = currentEpisodeBtn.getBoundingClientRect();
+        const gridRect = episodeGrid.getBoundingClientRect();
+        
+        // 计算按钮相对于容器的左边距
+        const btnLeft = currentEpisodeBtn.offsetLeft;
+        const btnWidth = currentEpisodeBtn.offsetWidth;
+        const gridWidth = episodeGrid.clientWidth;
+        const scrollLeft = episodeGrid.scrollLeft;
+        
+        // 计算最佳滚动位置 - 将当前集数居中显示
+        const targetScrollLeft = btnLeft - (gridWidth / 2) + (btnWidth / 2);
+        
+        // 平滑滚动到目标位置
+        episodeGrid.scrollTo({
+            left: Math.max(0, targetScrollLeft),
+            behavior: 'smooth'
+        });
+    }, 100);
 }
 
 // 播放指定集数
@@ -1017,6 +1052,8 @@ function toggleEpisodesGridAndOrder() {
             episodesGrid.classList.remove('hidden');
             episodesToggle.classList.add('active');
             episodesGridVisible = true;
+            // 显示网格后滚动到当前集数
+            scrollToCurrentEpisode();
         }
     } else {
         console.error('找不到必要的元素:', { episodesGrid, episodesToggle });
@@ -1500,6 +1537,8 @@ function toggleEpisodesGrid() {
         if (!isVisible) {
             episodesToggle.classList.add('active');
             episodesGridVisible = true;
+            // 显示网格后滚动到当前集数
+            scrollToCurrentEpisode();
         } else {
             episodesToggle.classList.remove('active');
             episodesGridVisible = false;
@@ -1521,6 +1560,8 @@ function updateEpisodesToggleButton(isVisible) {
             episodesToggle.classList.add('active');
             // 更新箭头状态
             updateOrderArrow(orderArrow);
+            // 显示网格后滚动到当前集数
+            scrollToCurrentEpisode();
         } else {
             episodesGrid.classList.add('hidden');
             episodesToggle.classList.remove('active');
