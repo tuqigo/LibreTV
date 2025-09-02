@@ -1,12 +1,12 @@
-// LibreTV JWT认证系统集成
-// 重构版本：简洁高效的认证系统
+// LibreTV JWT认证系统核心模块
+// 专注于认证状态管理和令牌处理
 
 const AUTH_CONFIG = {
     API_BASE_URL: '/proxy/api',
     TOKEN_KEY: 'libretv_jwt_token',
     USER_KEY: 'libretv_user_info',
     TOKEN_REFRESH_INTERVAL: 4 * 60 * 1000, // 4分钟检查一次令牌
-    USER_CONFIG_DETAIL: 'USER_CONFIG_DETAIL', // 新增：用户信息详情
+    USER_CONFIG_DETAIL: 'USER_CONFIG_DETAIL', // 用户信息详情
 };
 
 // 全局状态
@@ -265,10 +265,8 @@ const pageInitializer = {
     },
 
     initAuthPage() {
-        // 清理之前可能存在的状态
-        cleanupFormState();
+        // 检查是否已经认证，如果是则跳转到主页
         authChecker.checkExisting();
-        this.bindEvents();
         tokenManager.startRefreshTimer();
     },
 
@@ -334,15 +332,7 @@ const pageInitializer = {
             }
         },
 
-    bindEvents() {
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
-        const registerUsername = document.getElementById('registerUsername');
 
-        if (loginForm) loginForm.addEventListener('submit', this.handleLogin);
-        if (registerForm) registerForm.addEventListener('submit', this.handleRegister);
-        if (registerUsername) registerUsername.addEventListener('blur', this.checkUsername);
-    },
 
     updateUserDisplay() {
         const settingTitle = document.getElementById('settingTitle');
@@ -352,199 +342,7 @@ const pageInitializer = {
     }
 };
 
-// 表单处理
-const formHandler = {
-    async handleLogin(event) {
-        event.preventDefault();
-        
-        const username = document.getElementById('loginUsername')?.value.trim();
-        const password = document.getElementById('loginPassword')?.value;
-        
-        if (!username || !password) {
-            this.showError('请填写完整的登录信息');
-            return;
-        }
 
-        this.setLoading('loginBtn', true);
-        
-        try {
-            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
-                credentials: 'include' // 确保发送和接收Cookie
-            });
-
-            const data = await response.json();
-            
-            if (response.ok && data.token && data.user) {
-                if (authStorage.setAuth(data.token, data.user)) {
-                    this.showSuccess('登录成功，正在跳转...');
-                    setTimeout(() => redirectManager.toMain(), 1000);
-                } else {
-                    this.showError('登录成功但保存信息失败');
-                }
-            } else {
-                this.showError(data.error || data.message || '登录失败');
-            }
-        } catch (error) {
-            this.showError('网络错误，请检查网络连接');
-        } finally {
-            this.setLoading('loginBtn', false);
-        }
-    },
-
-    async handleRegister(event) {
-        event.preventDefault();
-        
-        const username = document.getElementById('registerUsername')?.value.trim();
-        const email = document.getElementById('registerEmail')?.value.trim();
-        const password = document.getElementById('registerPassword')?.value;
-        const confirmPassword = document.getElementById('confirmPassword')?.value;
-
-        if (!username || !password || !confirmPassword) {
-            this.showError('请填写完整的注册信息');
-            return;
-        }
-
-        if (username.length < 3 || username.length > 50) {
-            this.showError('用户名长度必须在3-50个字符之间');
-            return;
-        }
-
-        if (password.length < 6) {
-            this.showError('密码长度至少6个字符');
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            this.showError('两次输入的密码不一致');
-            return;
-        }
-
-        this.setLoading('registerBtn', true);
-        
-        try {
-            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password }),
-                credentials: 'include' // 确保发送和接收Cookie
-            });
-
-            const data = await response.json();
-            
-            if (response.ok && data.token && data.user) {
-                if (authStorage.setAuth(data.token, data.user)) {
-                    this.showSuccess('注册成功，正在跳转...');
-                    setTimeout(() => redirectManager.toMain(), 1000);
-                } else {
-                    this.showError('注册成功但保存信息失败');
-                }
-            } else {
-                this.showError(data.error || data.message || '注册失败');
-            }
-        } catch (error) {
-            this.showError('网络错误，请检查网络连接');
-        } finally {
-            this.setLoading('registerBtn', false);
-        }
-    },
-
-    async checkUsername() {
-        const username = document.getElementById('registerUsername')?.value.trim();
-        if (!username || username.length < 3) return;
-
-        try {
-            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/check-username`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username })
-            });
-
-            const data = await response.json();
-            const input = document.getElementById('registerUsername');
-            
-            if (response.ok) {
-                if (data.available) {
-                    input.style.borderColor = '#22c55e';
-                    input.title = '用户名可用';
-                    input.classList.add('success');
-                    input.classList.remove('error');
-                    // 用户名可用时不显示错误消息
-                    this.hideMessages();
-                } else {
-                    input.style.borderColor = '#ef4444';
-                    input.title = '用户名已被使用';
-                    input.classList.add('error');
-                    input.classList.remove('success');
-                    // 只在注册表单显示时才显示错误消息
-                    const registerForm = document.getElementById('registerForm');
-                    if (registerForm && registerForm.style.display !== 'none') {
-                        this.showError('用户名已被使用');
-                    }
-                }
-            } else {
-                input.style.borderColor = '#ef4444';
-                input.title = '检查失败';
-                input.classList.add('error');
-                input.classList.remove('success');
-                // 只在注册表单显示时才显示错误消息
-                const registerForm = document.getElementById('registerForm');
-                if (registerForm && registerForm.style.display !== 'none') {
-                    this.showError(data.error || '检查失败');
-                }
-            }
-        } catch (error) {
-            const input = document.getElementById('registerUsername');
-            input.style.borderColor = '#ef4444';
-            input.title = '网络错误';
-            input.classList.add('error');
-            input.classList.remove('success');
-            // 只在注册表单显示时才显示错误消息
-            const registerForm = document.getElementById('registerForm');
-            if (registerForm && registerForm.style.display !== 'none') {
-                this.showError('网络错误，请检查网络连接');
-            }
-        }
-    },
-
-    setLoading(buttonId, loading) {
-        const button = document.getElementById(buttonId);
-        if (!button) return;
-
-        const btnText = button.querySelector('.btn-text');
-        const loadingSpinner = button.querySelector('.loading');
-
-        button.disabled = loading;
-        if (btnText) btnText.style.display = loading ? 'none' : 'inline';
-        if (loadingSpinner) loadingSpinner.style.display = loading ? 'inline-block' : 'none';
-    },
-
-    showError(message) {
-        const element = document.getElementById('errorMessage');
-        if (element) {
-            element.textContent = message;
-            element.style.display = 'block';
-            setTimeout(() => this.hideMessages(), 5000);
-        }
-    },
-
-    showSuccess(message) {
-        const element = document.getElementById('successMessage');
-        if (element) {
-            element.textContent = message;
-            element.style.display = 'block';
-        }
-    },
-
-    hideMessages() {
-        ['errorMessage', 'successMessage'].forEach(id => {
-            const element = document.getElementById(id);
-            if (element) element.style.display = 'none';
-        });
-    }
-};
 
 // 公共函数
 const publicAPI = {
@@ -620,7 +418,10 @@ const publicAPI = {
             
             // 清理认证页面可能存在的状态
             if (utils.getPageType() === PAGE_TYPES.AUTH) {
-                cleanupFormState();
+                // 表单清理现在由auth-form.js处理
+                if (window.AuthForm && window.AuthForm.cleanup) {
+                    window.AuthForm.cleanup();
+                }
             }
             
             if (window.showToast) {
@@ -650,6 +451,15 @@ const publicAPI = {
 
     storeAuthData(token, user) {
         return authStorage.setAuth(token, user);
+    },
+
+    // 用于表单成功登录/注册后的处理
+    handleAuthSuccess(token, user) {
+        if (authStorage.setAuth(token, user)) {
+            setTimeout(() => redirectManager.toMain(), 1000);
+            return true;
+        }
+        return false;
     },
 
     // 显示认证弹框（用于播放器页面）
@@ -683,63 +493,15 @@ const publicAPI = {
         window.authSystemInitialized = false;
         
         if (utils.getPageType() === PAGE_TYPES.AUTH) {
-            formHandler.showError('系统检测到异常，已自动停止。请刷新页面重试。');
+            // 错误显示现在由auth-form.js处理
+            if (window.AuthForm && window.AuthForm.showError) {
+                window.AuthForm.showError('系统检测到异常，已自动停止。请刷新页面重试。');
+            }
         }
     }
 };
 
-// 切换登录/注册模式
-function switchAuthMode() {
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const switchText = document.getElementById('loginSwitchText');
-    const switchBtn = document.getElementById('authSwitchBtn');
 
-    if (loginForm && registerForm && switchText && switchBtn) {
-        const isLoginMode = loginForm.style.display !== 'none';
-        
-        loginForm.style.display = isLoginMode ? 'none' : 'block';
-        registerForm.style.display = isLoginMode ? 'block' : 'none';
-        switchText.textContent = isLoginMode ? '已有账号？' : '还没有账号？';
-        switchBtn.textContent = isLoginMode ? '立即登录' : '立即注册';
-        
-        // 完全清理所有状态
-        cleanupFormState();
-    }
-}
-
-// 清理表单状态的函数
-function cleanupFormState() {
-    // 隐藏所有消息
-    formHandler.hideMessages();
-    
-    // 清空所有输入框
-    const inputs = document.querySelectorAll('.form-input');
-    inputs.forEach(input => {
-        input.value = '';
-        input.style.borderColor = '';
-        input.title = '';
-        input.classList.remove('error', 'success');
-    });
-    
-    // 重置按钮状态
-    const buttons = document.querySelectorAll('.auth-btn');
-    buttons.forEach(button => {
-        button.disabled = false;
-        const btnText = button.querySelector('.btn-text');
-        const loadingSpinner = button.querySelector('.loading');
-        if (btnText) btnText.style.display = 'inline';
-        if (loadingSpinner) loadingSpinner.style.display = 'none';
-    });
-    
-    // 重置表单验证状态
-    const forms = document.querySelectorAll('.auth-form');
-    forms.forEach(form => {
-        if (form.classList.contains('was-validated')) {
-            form.classList.remove('was-validated');
-        }
-    });
-}
 
 // 事件绑定
 document.addEventListener('DOMContentLoaded', async () => await pageInitializer.init());
@@ -757,12 +519,6 @@ window.AuthSystem = publicAPI;
 window.goToAuth = publicAPI.goToAuth;
 window.checkAuthStatus = publicAPI.forceCheckAuth;
 window.logout = async () => await publicAPI.logout();
-window.switchAuthMode = switchAuthMode;
 window.emergencyStop = publicAPI.emergencyStop;
-
-// 绑定表单处理函数
-pageInitializer.handleLogin = formHandler.handleLogin.bind(formHandler);
-pageInitializer.handleRegister = formHandler.handleRegister.bind(formHandler);
-pageInitializer.checkUsername = formHandler.checkUsername.bind(formHandler);
 
 console.log('LibreTV认证系统已加载，版本: 3.0.0');
