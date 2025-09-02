@@ -1615,7 +1615,13 @@ async function toggleFavorite() {
 
     try {
         // 检查用户是否已登录
-        if (!window.AuthSystem || !window.AuthSystem.isUserAuthenticated()) {
+        if (!window.AuthSystem) {
+            alert('认证系统未加载');
+            return;
+        }
+
+        const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
+        if (!isAuthenticated) {
             alert('请先登录后再使用收藏功能');
             return;
         }

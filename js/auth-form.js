@@ -51,7 +51,7 @@ class AuthFormManager {
         this.setLoading('loginBtn', true);
         
         try {
-            const response = await fetch('/proxy/api/auth/login', {
+            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
@@ -60,11 +60,11 @@ class AuthFormManager {
 
             const data = await response.json();
             
-            if (response.ok && data.token && data.user) {
-                if (window.AuthSystem && window.AuthSystem.handleAuthSuccess(data.token, data.user)) {
+            if (response.ok && data.expires_in) {
+                if (window.AuthSystem && await window.AuthSystem.handleAuthSuccess()) {
                     this.showSuccess('登录成功，正在跳转...');
                 } else {
-                    this.showError('登录成功但保存信息失败');
+                    this.showError('登录成功但处理失败');
                 }
             } else {
                 this.showError(data.error || data.message || '登录失败');
@@ -116,7 +116,7 @@ class AuthFormManager {
         this.setLoading('registerBtn', true);
         
         try {
-            const response = await fetch('/proxy/api/auth/register', {
+            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, email, password }),
@@ -125,11 +125,11 @@ class AuthFormManager {
 
             const data = await response.json();
             
-            if (response.ok && data.token && data.user) {
-                if (window.AuthSystem && window.AuthSystem.handleAuthSuccess(data.token, data.user)) {
+            if (response.ok && data.expires_in) {
+                if (window.AuthSystem && await window.AuthSystem.handleAuthSuccess()) {
                     this.showSuccess('注册成功，正在跳转...');
                 } else {
-                    this.showError('注册成功但保存信息失败');
+                    this.showError('注册成功但处理失败');
                 }
             } else {
                 this.showError(data.error || data.message || '注册失败');
@@ -148,7 +148,7 @@ class AuthFormManager {
         if (!username || username.length < 5) return;
 
         try {
-            const response = await fetch('/proxy/api/auth/check-username', {
+            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/check-username`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username })

@@ -3,16 +3,16 @@
 
 const AUTH_CONFIG = {
     API_BASE_URL: '/proxy/api',
-    TOKEN_KEY: 'libretv_jwt_token',
-    USER_KEY: 'libretv_user_info',
     TOKEN_REFRESH_INTERVAL: 4 * 60 * 1000, // 4分钟检查一次令牌
-    USER_CONFIG_DETAIL: 'USER_CONFIG_DETAIL', // 用户信息详情
+    // 移除不安全的localStorage存储配置
+    // TOKEN_KEY、USER_KEY 和 USER_CONFIG_DETAIL 不再需要，因为我们使用HttpOnly Cookie
 };
 
 // 全局状态
 let isAuthenticated = false;
 let currentUser = null;
 let tokenRefreshTimer = null;
+let userInfoLoaded = false; // 标记用户信息是否已加载
 
 // 页面类型
 const PAGE_TYPES = {
@@ -62,82 +62,64 @@ const utils = {
     }
 };
 
-// 认证数据管理
+// 认证数据管理 - 基于Cookie的安全策略
 const authStorage = {
-    getToken() {
+    // 检查认证状态 - 通过调用后端接口验证（带缓存）
+    async checkAuthStatus() {
         try {
-            const token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
-            if (!token || token.split('.').length !== 3) {
-                if (token) localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
-                return null;
+            // 如果用户信息已加载且仍然有效，直接返回
+            if (userInfoLoaded && currentUser && isAuthenticated) {
+                return { isValid: true, user: currentUser };
             }
-            return token;
+
+            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/user-info`, {
+                method: 'GET',
+                credentials: 'include' // 包含HttpOnly Cookie
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                isAuthenticated = true;
+                currentUser = userData;
+                userInfoLoaded = true; // 标记已加载
+                return { isValid: true, user: userData };
+            } else {
+                isAuthenticated = false;
+                currentUser = null;
+                userInfoLoaded = false;
+                return { isValid: false, user: null };
+            }
         } catch (error) {
-            return utils.handleError(error, '获取令牌失败');
+            console.error('检查认证状态失败:', error);
+            isAuthenticated = false;
+            currentUser = null;
+            userInfoLoaded = false;
+            return { isValid: false, user: null };
         }
     },
 
-    getUser() {
-        try {
-            const userStr = localStorage.getItem(AUTH_CONFIG.USER_KEY);
-            if (!userStr) return null;
-            
-            const user = JSON.parse(userStr);
-            if (!user || typeof user !== 'object' || !user.username) {
-                localStorage.removeItem(AUTH_CONFIG.USER_KEY);
-                return null;
-            }
-            return user;
-        } catch (error) {
-            return utils.handleError(error, '获取用户信息失败');
-        }
+    // 设置认证成功状态 - 不再存储敏感信息到localStorage
+    setAuthSuccess() {
+        isAuthenticated = true;
+        // currentUser 将通过 loadUserInfo 异步获取
+        return true;
     },
 
-    setAuth(token, user) {
-        try {
-            if (!token || !user || typeof user !== 'object' || !user.username) {
-                throw new Error('无效的认证数据');
-            }
-            
-            localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token);
-            localStorage.setItem(AUTH_CONFIG.USER_KEY, JSON.stringify(user));
-            isAuthenticated = true;
-            currentUser = user;
-            return true;
-        } catch (error) {
-            return utils.handleError(error, '存储认证数据失败');
-        }
-    },
-
+    // 清除认证状态
     clear() {
         try {
             localStorage.clear()
             isAuthenticated = false;
             currentUser = null;
+            userInfoLoaded = false; // 重置加载标记
         } catch (error) {
             utils.handleError(error, '清除认证数据失败');
         }
     }
 };
 
-// 令牌管理
+// 令牌管理 - 基于Cookie的策略
 const tokenManager = {
-    isExpired(token) {
-        try {
-            if (!token || typeof token !== 'string') return true;
-            
-            const parts = token.split('.');
-            if (parts.length !== 3) return true;
-            
-            const payload = JSON.parse(atob(parts[1]));
-            if (!payload.exp || typeof payload.exp !== 'number') return true;
-            
-            return payload.exp < (Date.now() / 1000);
-        } catch (error) {
-            return true;
-        }
-    },
-
     async refresh() {
         try {
             const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/refresh`, {
@@ -150,8 +132,12 @@ const tokenManager = {
 
             if (response.ok) {
                 const data = await response.json();
-                if (data.token && data.user) {
-                    return authStorage.setAuth(data.token, data.user);
+                // 后端现在只返回过期时间，不返回敏感信息
+                if (data.expires_in) {
+                    isAuthenticated = true;
+                    // 重新加载用户信息
+                    await this.loadUserInfo();
+                    return true;
                 }
             }
             
@@ -165,22 +151,47 @@ const tokenManager = {
         }
     },
 
+    async loadUserInfo() {
+        try {
+            // 如果用户信息已加载，直接返回
+            if (userInfoLoaded && currentUser) {
+                return currentUser;
+            }
+
+            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/user-info`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                currentUser = userData;
+                userInfoLoaded = true; // 标记已加载
+                return userData;
+            }
+            return null;
+        } catch (error) {
+            console.error('加载用户信息失败:', error);
+            return null;
+        }
+    },
+
     startRefreshTimer() {
         if (tokenRefreshTimer) clearInterval(tokenRefreshTimer);
         
         tokenRefreshTimer = setInterval(async () => {
-            const token = authStorage.getToken();
-            if (token && this.isExpired(token)) {
-                console.log('Access token已过期，尝试刷新...');
+            // 定期刷新token以保持认证状态
+            if (isAuthenticated) {
+                console.log('定期刷新token...');
                 const success = await this.refresh();
                 if (!success) {
-                    console.log('刷新失败，需要重新登录');
+                    console.log('定期刷新失败，需要重新登录');
                     // 只有在刷新失败且不在认证页面时才跳转
                     if (utils.getPageType() !== PAGE_TYPES.AUTH) {
                         utils.redirect(utils.getRedirectUrl('auth'));
                     }
                 } else {
-                    console.log('Token刷新成功');
+                    console.log('定期刷新成功');
                 }
             }
         }, AUTH_CONFIG.TOKEN_REFRESH_INTERVAL);
@@ -190,34 +201,24 @@ const tokenManager = {
 // 认证状态检查
 const authChecker = {
     async check() {
-        const token = authStorage.getToken();
-        const user = authStorage.getUser();
+        // 检查认证状态（带缓存优化）
+        const authStatus = await authStorage.checkAuthStatus();
         
-        if (token && user && !tokenManager.isExpired(token)) {
-            isAuthenticated = true;
-            currentUser = user;
-            return { isValid: true, token, user };
-        }
-        
-        // 如果token过期，尝试刷新
-        if (token && tokenManager.isExpired(token)) {
-            console.log('Token已过期，尝试刷新...');
+        if (authStatus.isValid) {
+            return authStatus;
+        } else {
+            // 认证无效，尝试刷新token
+            console.log('认证状态无效，尝试刷新...');
             const refreshSuccess = await tokenManager.refresh();
             if (refreshSuccess) {
                 console.log('Token刷新成功');
-                isAuthenticated = true;
-                currentUser = authStorage.getUser();
-                return { isValid: true, token: authStorage.getToken(), user: currentUser };
+                return await authStorage.checkAuthStatus();
             } else {
                 console.log('Token刷新失败，清除认证状态');
                 authStorage.clear();
+                return { isValid: false, user: null };
             }
         }
-        
-        isAuthenticated = false;
-        currentUser = null;
-        
-        return { isValid: false, token, user };
     },
 
     async checkExisting() {
@@ -282,55 +283,20 @@ const pageInitializer = {
         }
     },
 
-    // 新增：加载用户详细信息
+    // 加载用户信息 - 不再使用localStorage缓存
     async loadUserConfig() {
         try {
-
-            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/user-info`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                const userDetail = await response.json();
-                
-                // 存储用户配置到 localStorage
-                localStorage.setItem(AUTH_CONFIG.USER_CONFIG_DETAIL, JSON.stringify(userDetail));
-                
-                // 根据配置更新页面
-                // await this.applyUserConfig(userDetail);
-                
-                console.log('用户详细信息加载成功:', userDetail);
+            const userData = await tokenManager.loadUserInfo();
+            if (userData) {
+                console.log('用户信息加载成功:', userData);
+                this.updateUserDisplay();
             } else {
-                console.warn('获取用户详细信息失败:', response.status);
-                // 尝试使用缓存的配置
-                await this.loadCachedConfig();
+                console.warn('获取用户信息失败');
             }
         } catch (error) {
-            console.error('加载用户详细信息时出错:', error);
-            // 尝试使用缓存的配置
-            await this.loadCachedConfig();
+            console.error('加载用户信息时出错:', error);
         }
     },
-
-
-        // 新增：加载缓存的配置
-        async loadCachedConfig() {
-            try {
-                const cachedConfig = localStorage.getItem(AUTH_CONFIG.USER_CONFIG_DETAIL);
-                if (cachedConfig) {
-                    const userConfig = JSON.parse(cachedConfig);
-
-                    // await this.applyUserConfig(userConfig);
-                    console.log('使用缓存的用户详细信息:', userConfig);
-                }
-            } catch (error) {
-                console.error('加载缓存用户详细信息时出错:', error);
-            }
-        },
 
 
 
@@ -348,72 +314,45 @@ const pageInitializer = {
 const publicAPI = {
     // 认证状态
     async isUserAuthenticated() {
-        const token = authStorage.getToken();
-        if (!token) return false;
-        
-        // 如果token过期，尝试刷新
-        if (tokenManager.isExpired(token)) {
-            console.log('Token已过期，尝试刷新...');
-            const refreshSuccess = await tokenManager.refresh();
-            if (refreshSuccess) {
-                console.log('Token刷新成功');
-                return true;
-            } else {
-                console.log('Token刷新失败');
-                return false;
-            }
-        }
-        
-        return true;
+        const authStatus = await authStorage.checkAuthStatus();
+        return authStatus.isValid;
     },
 
     // 同步版本的认证检查（用于不需要等待的场景）
     isUserAuthenticatedSync() {
-        const token = authStorage.getToken();
-        return !!(token && !tokenManager.isExpired(token));
+        return isAuthenticated;
     },
 
     getCurrentUser() {
-        return this.isUserAuthenticatedSync() ? currentUser : null;
+        return isAuthenticated ? currentUser : null;
     },
 
-    // 获取存储的token（用于其他模块）
-    getStoredToken() {
-        return authStorage.getToken();
-    },
-
+    // 获取认证头（不再需要存储token）
     getAuthHeaders() {
-        const token = authStorage.getToken();
-        return token && !tokenManager.isExpired(token) 
-            ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-            : { 'Content-Type': 'application/json' };
+        return { 'Content-Type': 'application/json' };
     },
 
     // 操作
     async logout() {
         try {
-            // 先调用后端登出接口
-            const token = authStorage.getToken();
-            if (token) {
-                const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/logout`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    console.log('后端登出成功');
-                } else {
-                    console.warn('后端登出失败，但继续清理本地状态');
-                }
+            // 调用后端登出接口（使用HttpOnly Cookie）
+            const response = await fetch(`${AUTH_CONFIG.API_BASE_URL}/auth/logout`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include' // 发送HttpOnly Cookie
+            });
+            
+            if (response.ok) {
+                console.log('后端登出成功');
+            } else {
+                console.warn('后端登出失败，但继续清理本地状态');
             }
         } catch (error) {
             console.warn('调用登出接口时出错，但继续清理本地状态:', error);
         } finally {
             // 无论后端是否成功，都清理本地状态
-            localStorage.clear();
             authStorage.clear();
             
             // 清理认证页面可能存在的状态
@@ -449,17 +388,25 @@ const publicAPI = {
         authStorage.clear();
     },
 
-    storeAuthData(token, user) {
-        return authStorage.setAuth(token, user);
-    },
-
     // 用于表单成功登录/注册后的处理
-    handleAuthSuccess(token, user) {
-        if (authStorage.setAuth(token, user)) {
+    async handleAuthSuccess() {
+        try {
+            authStorage.setAuthSuccess();
+            
+            // 尝试加载用户信息，但不阻塞跳转
+            try {
+                await tokenManager.loadUserInfo();
+            } catch (error) {
+                console.warn('加载用户信息失败，但继续跳转:', error);
+            }
+            
+            // 无论用户信息是否加载成功都进行跳转
             setTimeout(() => redirectManager.toMain(), 1000);
             return true;
+        } catch (error) {
+            console.error('处理登录成功时出错:', error);
+            return false;
         }
-        return false;
     },
 
     // 显示认证弹框（用于播放器页面）

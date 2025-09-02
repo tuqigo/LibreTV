@@ -2,7 +2,15 @@ async function syncConfig(needShowToast = false) {
     const key = 'viewingHistory';
 
     // 检查JWT认证状态
-    if (!window.AuthSystem || !window.AuthSystem.isUserAuthenticated()) {
+    if (!window.AuthSystem) {
+        if (needShowToast) {
+            showToast(`认证系统未加载！`, 'warning');
+        }
+        return;
+    }
+
+    const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
+    if (!isAuthenticated) {
         if (needShowToast) {
             showToast(`请先登录以同步播放历史！`, 'warning');
         }
@@ -10,9 +18,8 @@ async function syncConfig(needShowToast = false) {
     }
 
     const user = window.AuthSystem.getCurrentUser();
-    const token = window.AuthSystem.getStoredToken();
 
-    if (!user || !token) {
+    if (!user) {
         if (needShowToast) {
             showToast(`认证信息无效，请重新登录！`, 'warning');
         }

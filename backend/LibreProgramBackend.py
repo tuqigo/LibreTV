@@ -641,11 +641,10 @@ def register():
             # 存储刷新令牌
             store_refresh_token(user_id, refresh_token)
 
-            # 创建响应并设置刷新令牌Cookie
+            # 创建响应，只返回过期时间，不返回敏感信息
             response_data = {
                 'message': '注册成功',
-                'token': access_token,
-                'user': {'id': user_id, 'username': username, 'email': email if email else None}
+                'expires_in': app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] * 60  # 返回秒数
             }
 
             response = make_response(jsonify(response_data))
@@ -738,11 +737,10 @@ def login():
             # 存储刷新令牌
             store_refresh_token(user_id, refresh_token)
 
-            # 创建响应并设置刷新令牌Cookie
+            # 创建响应，只返回过期时间，不返回敏感信息
             response_data = {
                 'message': '登录成功',
-                'token': access_token,
-                'user': {'id': user_id, 'username': username}
+                'expires_in': app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] * 60  # 返回秒数
             }
 
             response = make_response(jsonify(response_data))
@@ -801,8 +799,7 @@ def refresh_token():
 
         response_data = {
             'message': '令牌刷新成功',
-            'token': new_access_token,
-            'user': user_info
+            'expires_in': app.config['ACCESS_TOKEN_EXPIRATION_MINUTES'] * 60  # 返回秒数
         }
 
         response = make_response(jsonify(response_data))

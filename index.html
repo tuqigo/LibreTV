@@ -407,11 +407,17 @@
         window.addEventListener('DOMContentLoaded', async function() {
             try {
                 // 检查JWT认证状态
-                if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
-                    const user = window.AuthSystem.getCurrentUser();
-                    document.getElementById('settingTitle').innerText = user.username + '的设置';
-                    console.log("DOM加载完成后执行一次");
-                    await syncConfig(false);
+                if (window.AuthSystem) {
+                    // 等待认证状态检查完成
+                    const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
+                    if (isAuthenticated) {
+                        const user = window.AuthSystem.getCurrentUser();
+                        if (user) {
+                            document.getElementById('settingTitle').innerText = user.username + '的设置';
+                        }
+                        console.log("DOM加载完成后执行一次");
+                        await syncConfig(false);
+                    }
                 }
             } catch (error) {
                 console.error("异步方法执行出错:", error);

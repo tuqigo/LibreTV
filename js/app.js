@@ -2107,7 +2107,13 @@ let userFavorites = new Set(); // 存储用户收藏的key
 async function toggleFavorite(key, videoData) {
     try {
         // 检查用户是否已登录
-        if (!window.AuthSystem || !window.AuthSystem.isUserAuthenticated()) {
+        if (!window.AuthSystem) {
+            showToast('认证系统未加载', 'error');
+            return;
+        }
+
+        const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
+        if (!isAuthenticated) {
             showToast('请先登录后再使用收藏功能', 'error');
             return;
         }
