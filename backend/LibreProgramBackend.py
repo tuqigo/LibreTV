@@ -11,6 +11,8 @@ import time
 import logging
 from logging.handlers import RotatingFileHandler
 import re
+from collections import defaultdict, deque
+import threading
 
 
 app = Flask(__name__)
@@ -48,6 +50,12 @@ app.config['REFRESH_TOKEN_EXPIRATION_DAYS'] = 7  # Refresh Token 7天过期
 # 新增：Cookie配置
 app.config['COOKIE_SECURE'] = os.environ.get('COOKIE_SECURE', 'false').lower() == 'true'  # 生产环境设为True
 app.config['COOKIE_DOMAIN'] = os.environ.get('COOKIE_DOMAIN', None)  # 生产环境设置域名
+
+# 新增：限流配置
+app.config['RATE_LIMIT_ENABLED'] = os.environ.get('RATE_LIMIT_ENABLED', 'true').lower() == 'true'
+app.config['USER_RATE_LIMIT'] = int(os.environ.get('USER_RATE_LIMIT', 5))  # 用户每秒请求数限制
+app.config['API_RATE_LIMIT'] = int(os.environ.get('API_RATE_LIMIT', 15))   # 接口每秒请求数限制
+app.config['RATE_LIMIT_WINDOW'] = int(os.environ.get('RATE_LIMIT_WINDOW', 1))  # 限流窗口大小（秒）
 
 DB_PATH = 'data/libretv.db'
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -126,6 +134,63 @@ def init_db():
 
 
 init_db()
+
+# 限流器实现
+class RateLimiter:
+    def __init__(self, window_size=1):
+        self.window_size = window_size
+        self.user_requests = defaultdict(lambda: deque())
+        self.api_requests = defaultdict(lambda: deque())
+        self.lock = threading.Lock()
+    
+    def _cleanup_old_requests(self, requests_deque, current_time):
+        """清理过期的请求记录"""
+        while requests_deque and requests_deque[0] < current_time - self.window_size:
+            requests_deque.popleft()
+    
+    def is_allowed(self, key, requests_deque, limit):
+        """检查是否允许请求"""
+        current_time = time.time()
+        
+        with self.lock:
+            self._cleanup_old_requests(requests_deque, current_time)
+            
+            if len(requests_deque) >= limit:
+                return False
+            
+            requests_deque.append(current_time)
+            return True
+    
+    def check_user_rate_limit(self, user_id, limit):
+        """检查用户限流"""
+        key = f"user_{user_id}"
+        return self.is_allowed(key, self.user_requests[key], limit)
+    
+    def check_api_rate_limit(self, endpoint, limit):
+        """检查接口限流"""
+        key = f"api_{endpoint}"
+        return self.is_allowed(key, self.api_requests[key], limit)
+    
+    def get_user_request_count(self, user_id):
+        """获取用户当前窗口内的请求数"""
+        key = f"user_{user_id}"
+        current_time = time.time()
+        
+        with self.lock:
+            self._cleanup_old_requests(self.user_requests[key], current_time)
+            return len(self.user_requests[key])
+    
+    def get_api_request_count(self, endpoint):
+        """获取接口当前窗口内的请求数"""
+        key = f"api_{endpoint}"
+        current_time = time.time()
+        
+        with self.lock:
+            self._cleanup_old_requests(self.api_requests[key], current_time)
+            return len(self.api_requests[key])
+
+# 创建全局限流器实例
+rate_limiter = RateLimiter(window_size=app.config['RATE_LIMIT_WINDOW'])
 
 # 防刷配置
 RATE_LIMIT = {
@@ -342,8 +407,72 @@ def jwt_required(f):
     return decorated_function
 
 
+# 统一限流装饰器
+def rate_limit(user_limit=None, api_limit=None):
+    """
+    统一限流装饰器
+    :param user_limit: 用户限流数量，None表示不进行用户限流
+    :param api_limit: 接口限流数量，None表示使用默认配置
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not app.config['RATE_LIMIT_ENABLED']:
+                return f(*args, **kwargs)
+            
+            endpoint = request.endpoint
+            
+            # 接口维度限流
+            if api_limit is not None:
+                limit = api_limit
+            else:
+                limit = app.config['API_RATE_LIMIT']
+            
+            if not rate_limiter.check_api_rate_limit(endpoint, limit):
+                app.logger.warning(f"接口 {endpoint} 限流触发，当前请求数: {rate_limiter.get_api_request_count(endpoint)}")
+                return jsonify({
+                    'error': '接口访问过于频繁，请稍后再试',
+                    'retry_after': app.config['RATE_LIMIT_WINDOW']
+                }), 429
+            
+            # 用户维度限流（如果指定了user_limit，则需要JWT认证）
+            if user_limit is not None:
+                # 先进行JWT认证
+                token = request.cookies.get('accessToken')
+                if not token:
+                    token = request.headers.get('Authorization')
+                    if not token:
+                        app.logger.warning("请求缺少认证令牌")
+                        return jsonify({'error': '缺少认证令牌'}), 401
+                    if token and token.startswith('Bearer '):
+                        token = token[7:]
+
+                payload = verify_access_token(token)
+                if not payload:
+                    return jsonify({'error': '无效或过期的访问令牌'}), 401
+
+                request.user = payload
+                
+                # 进行用户限流检查
+                user_id = request.user['user_id']
+                username = request.user['username']
+                
+                if not rate_limiter.check_user_rate_limit(user_id, user_limit):
+                    app.logger.warning(f"用户 {username} (ID: {user_id}) 限流触发，当前请求数: {rate_limiter.get_user_request_count(user_id)}")
+                    return jsonify({
+                        'error': '用户访问过于频繁，请稍后再试',
+                        'retry_after': app.config['RATE_LIMIT_WINDOW']
+                    }), 429
+                
+                app.logger.info(f"用户 {username} (ID: {user_id}) 认证成功")
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 @app.route('/api/viewing-history/operation', methods=['GET', 'POST'])
-@jwt_required
+@rate_limit(user_limit=4, api_limit=20)  # 用户每秒3次，接口每秒10次
 def user_viewing_history():
     try:
         user_id = request.user['user_id']
@@ -395,6 +524,7 @@ def is_valid_email(email):
 
 # 检查用户名是否可用
 @app.route('/api/auth/check-username', methods=['POST'])
+@rate_limit(api_limit=10)  # 仅接口限流，每秒5次
 def check_username():
     try:
         data = request.get_json()
@@ -429,6 +559,7 @@ def check_username():
 
 # 用户注册
 @app.route('/api/auth/register', methods=['POST'])
+@rate_limit(api_limit=5)  # 仅接口限流，每秒3次
 def register():
     try:
         data = request.get_json()
@@ -532,6 +663,7 @@ def register():
 
 # 用户登录
 @app.route('/api/auth/login', methods=['POST'])
+@rate_limit(api_limit=5)  # 仅接口限流，每秒5次
 def login():
     try:
         data = request.get_json()
@@ -627,6 +759,7 @@ def login():
 
 # 刷新令牌
 @app.route('/api/auth/refresh', methods=['POST'])
+@rate_limit(api_limit=10)  # 仅接口限流，每秒10次
 def refresh_token():
     try:
         # 从Cookie中获取刷新令牌
@@ -685,7 +818,7 @@ def refresh_token():
 
 # 登出
 @app.route('/api/auth/logout', methods=['POST'])
-@jwt_required
+@rate_limit(user_limit=1, api_limit=8)  # 用户每秒2次，接口每秒5次
 def logout():
     try:
         user_id = request.user['user_id']
@@ -720,7 +853,7 @@ def logout():
 
 # 用户详情查询接口
 @app.route('/api/auth/user-info', methods=['GET'])
-@jwt_required
+@rate_limit(user_limit=5, api_limit=20)  # 用户每秒5次，接口每秒20次
 def get_user_info():
     try:
         user_id = request.user['user_id']
@@ -754,9 +887,34 @@ def get_user_info():
 def health_check():
     return jsonify({'status': 'ok', 'message': '服务正常运行'})
 
+# 限流状态查询接口（仅用于调试）
+@app.route('/api/rate-limit/status', methods=['GET'])
+@rate_limit(user_limit=1, api_limit=2)  # 限制查询频率
+def rate_limit_status():
+    try:
+        user_id = request.user['user_id']
+        endpoint = request.args.get('endpoint', '')
+        
+        result = {
+            'rate_limit_enabled': app.config['RATE_LIMIT_ENABLED'],
+            'user_rate_limit': app.config['USER_RATE_LIMIT'],
+            'api_rate_limit': app.config['API_RATE_LIMIT'],
+            'window_size': app.config['RATE_LIMIT_WINDOW'],
+            'current_user_requests': rate_limiter.get_user_request_count(user_id)
+        }
+        
+        if endpoint:
+            result['current_api_requests'] = rate_limiter.get_api_request_count(endpoint)
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        app.logger.error(f"获取限流状态失败: {str(e)}")
+        return jsonify({'error': f'获取限流状态失败: {str(e)}'}), 500
+
 # 用户收藏接口
 @app.route('/api/user-favorites', methods=['GET', 'POST'])
-@jwt_required
+@rate_limit(user_limit=3, api_limit=10)  # 用户每秒3次，接口每秒10次
 def user_favorites():
     try:
         user_id = request.user['user_id']
@@ -829,7 +987,7 @@ def user_favorites():
 
 # 批量查询收藏状态接口
 @app.route('/api/user-favorites/batch-check', methods=['POST'])
-@jwt_required
+@rate_limit(user_limit=2, api_limit=8)  # 用户每秒2次，接口每秒8次
 def batch_check_favorites():
     try:
         user_id = request.user['user_id']
