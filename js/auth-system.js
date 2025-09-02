@@ -262,7 +262,6 @@ const pageInitializer = {
         }
         
         window.authSystemInitialized = true;
-        await this.loadUserConfig()
     },
 
     initAuthPage() {
@@ -277,10 +276,9 @@ const pageInitializer = {
         const authStatus = await authChecker.check();
         if (authStatus.isValid) {
             tokenManager.startRefreshTimer();
-             // 新增：获取用户配置
+            // 新增：获取用户配置
             await this.loadUserConfig();
             this.updateUserDisplay();
-             
         } else {
             redirectManager.toAuth();
         }
