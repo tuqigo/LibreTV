@@ -1,55 +1,36 @@
 async function syncConfig(needShowToast = false) {
     const key = 'viewingHistory';
 
-    // 检查JWT认证状态
-    if (!window.AuthSystem) {
-        if (needShowToast) {
-            showToast(`认证系统未加载！`, 'warning');
-        }
-        return;
-    }
-
-    const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
-    if (!isAuthenticated) {
-        if (needShowToast) {
-            showToast(`请先登录以同步播放历史！`, 'warning');
-        }
-        return;
-    }
-
-    const user = window.AuthSystem.getCurrentUser();
-
-    if (!user) {
-        if (needShowToast) {
-            showToast(`认证信息无效，请重新登录！`, 'warning');
-        }
-        return;
-    }
-
-
-    // 1. 拉取远程配置
-    let remoteList = [];
     try {
-        const res = await fetch(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
-
-        if (res.status === 404) {
-            // 新用户，没有远程数据
-            remoteList = [];
-        } else if (!res.ok) {
-            throw new Error(`GET ${res.status}`);
-        } else {
-            const data = await res.json();
-            remoteList = data.data ? JSON.parse(data.data) : [];
-            if (!Array.isArray(remoteList)) remoteList = [];
+        // 1. 获取用户信息并拉取远程配置 - 使用业界标准API调用
+        const user = window.AuthSystem.getCurrentUser();
+        if (!user) {
+            if (needShowToast) {
+                showToast('请先登录以同步播放历史！', 'warning');
+            }
+            return;
         }
-    } catch (e) {
-        console.warn('拉取远程 viewingHistory 失败，采用空列表：', e);
-    }
+        
+        let remoteList = [];
+        
+        // 获取用户的观看历史
+        try {
+            const historyResponse = await window.AuthSystem.apiRequest(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
+                method: 'GET'
+            });
+            
+            if (historyResponse.status === 404) {
+                // 新用户，没有远程数据
+                remoteList = [];
+            } else {
+                const historyData = await historyResponse.json();
+                remoteList = historyData.data ? JSON.parse(historyData.data) : [];
+                if (!Array.isArray(remoteList)) remoteList = [];
+            }
+        } catch (e) {
+            console.warn('拉取远程 viewingHistory 失败，采用空列表：', e);
+            remoteList = [];
+        }
 
     // 2. 读取本地配置
     let localList = [];
@@ -104,27 +85,47 @@ async function syncConfig(needShowToast = false) {
         console.warn('读取 deleteHistoryItems 失败：', e);
     }
 
-    // 4. 写回本地和远程
-    localStorage.setItem(key, JSON.stringify(merged));
-    try {
+        // 4. 写回本地和远程
+        localStorage.setItem(key, JSON.stringify(merged));
+        
         // 本地不为空，才需要写远程
         if (localList.length > 0) {
-            await fetch(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
+            await window.AuthSystem.apiRequest(`/proxy/api/viewing-history/operation?key=${encodeURIComponent(user.username)}_viewingHistory`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(merged),
-                credentials: 'include'
+                body: JSON.stringify(merged)
             });
         }
-    } catch (e) {
-        console.error('同步远程 viewingHistory 失败：', e);
-    }
 
-    loadViewingHistory(); // 重新加载历史记录
+        loadViewingHistory(); // 重新加载历史记录
 
-    if (needShowToast) {
-        showToast(`${user.username} 的历史播放记录已同步`, 'success');
+        if (needShowToast) {
+            showToast(`${user.username} 的历史播放记录已同步`, 'success');
+        }
+        
+    } catch (error) {
+        // 统一的错误处理
+        if (error instanceof AuthError) {
+            if (needShowToast) {
+                showToast('请先登录以同步播放历史！', 'warning');
+            }
+            return;
+        }
+        
+        if (error instanceof ApiError) {
+            console.error('同步配置失败:', error.message);
+            if (needShowToast) {
+                showToast('同步失败: ' + error.message, 'error');
+            }
+        } else if (error instanceof NetworkError) {
+            console.error('网络错误:', error.message);
+            if (needShowToast) {
+                showToast('网络错误，请稍后重试', 'error');
+            }
+        } else {
+            console.error('同步配置失败:', error);
+            if (needShowToast) {
+                showToast('同步失败，请稍后重试', 'error');
+            }
+        }
     }
 }

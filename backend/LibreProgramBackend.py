@@ -472,7 +472,7 @@ def rate_limit(user_limit=None, api_limit=None):
 
 
 @app.route('/api/viewing-history/operation', methods=['GET', 'POST'])
-@rate_limit(user_limit=4, api_limit=20)  # 用户每秒3次，接口每秒10次
+@rate_limit(user_limit=10, api_limit=25)  # 用户每秒10次，接口每秒25次
 def user_viewing_history():
     try:
         user_id = request.user['user_id']
@@ -850,7 +850,7 @@ def logout():
 
 # 用户详情查询接口
 @app.route('/api/auth/user-info', methods=['GET'])
-@rate_limit(user_limit=5, api_limit=20)  # 用户每秒5次，接口每秒20次
+@rate_limit(user_limit=15, api_limit=30)  # 用户每秒15次，接口每秒30次
 def get_user_info():
     try:
         user_id = request.user['user_id']
@@ -886,7 +886,7 @@ def health_check():
 
 # 限流状态查询接口（仅用于调试）
 @app.route('/api/rate-limit/status', methods=['GET'])
-@rate_limit(user_limit=1, api_limit=2)  # 限制查询频率
+@rate_limit(user_limit=5, api_limit=10)  # 放宽限制以便调试
 def rate_limit_status():
     try:
         user_id = request.user['user_id']
@@ -911,7 +911,7 @@ def rate_limit_status():
 
 # 用户收藏接口
 @app.route('/api/user-favorites', methods=['GET', 'POST'])
-@rate_limit(user_limit=3, api_limit=10)  # 用户每秒3次，接口每秒10次
+@rate_limit(user_limit=8, api_limit=15)  # 用户每秒8次，接口每秒15次
 def user_favorites():
     try:
         user_id = request.user['user_id']
@@ -984,7 +984,7 @@ def user_favorites():
 
 # 批量查询收藏状态接口
 @app.route('/api/user-favorites/batch-check', methods=['POST'])
-@rate_limit(user_limit=2, api_limit=8)  # 用户每秒2次，接口每秒8次
+@rate_limit(user_limit=10, api_limit=20)  # 用户每秒10次，接口每秒20次
 def batch_check_favorites():
     try:
         user_id = request.user['user_id']

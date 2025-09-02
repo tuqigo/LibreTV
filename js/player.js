@@ -1606,7 +1606,7 @@ async function checkCurrentVideoFavoriteStatus() {
     }
 }
 
-// 切换收藏状态
+// 切换收藏状态 - 业界标准方案
 async function toggleFavorite() {
     if (!currentVideoInfo || !currentVideoInfo.vod_id || !currentVideoInfo.source_code) {
         console.log('视频信息不完整，无法收藏');
@@ -1614,27 +1614,12 @@ async function toggleFavorite() {
     }
 
     try {
-        // 检查用户是否已登录
-        if (!window.AuthSystem) {
-            alert('认证系统未加载');
-            return;
-        }
-
-        const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
-        if (!isAuthenticated) {
-            alert('请先登录后再使用收藏功能');
-            return;
-        }
-
         // 生成收藏key
         const favoriteKey = `${currentVideoInfo.vod_id}_${currentVideoInfo.source_code}`;
         const action = isCurrentVideoFavorited ? 'remove' : 'add';
 
-        const response = await fetch('/proxy/api/user-favorites', {
+        const response = await window.AuthSystem.apiRequest('/proxy/api/user-favorites', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
                 action: action,
                 key: favoriteKey,
@@ -1642,16 +1627,26 @@ async function toggleFavorite() {
             })
         });
 
-        if (response.ok) {
-            isCurrentVideoFavorited = !isCurrentVideoFavorited;
-            updateFavoriteButtonState();
-        } else {
-            const errorData = await response.json();
-            showToast(`操作失败: ${errorData.error || '未知错误'}`, 'error');
-        }
+        // 成功处理
+        isCurrentVideoFavorited = !isCurrentVideoFavorited;
+        updateFavoriteButtonState();
+        showToast(isCurrentVideoFavorited ? '已添加到收藏' : '已从收藏中移除', 'success');
+        
     } catch (error) {
+        // 统一的错误处理
+        if (error instanceof AuthError) {
+            alert('请先登录后再使用收藏功能');
+            return;
+        }
+        
+        if (error instanceof ApiError) {
+            showToast(`操作失败: ${error.message}`, 'error');
+        } else if (error instanceof NetworkError) {
+            showToast('网络错误，请稍后重试', 'error');
+        } else {
+            showToast('未知错误，请稍后重试', 'error');
+        }
         console.error('收藏操作失败:', error);
-        showToast('网络错误，请稍后重试', 'error');
     }
 }
 

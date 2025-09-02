@@ -670,12 +670,12 @@ document.addEventListener('DOMContentLoaded', function () {
     initContentSwitcher();
 
     // 初始化用户收藏状态（如果用户已登录）
-    if (window.AuthSystem && window.AuthSystem.getCurrentUser()) {
+    window.AuthSystem?.auth.ifAuthenticated(() => {
         // 延迟预加载收藏状态，确保搜索结果中的收藏按钮能正确显示
         setTimeout(() => {
             preloadUserFavorites();
         }, 1000);
-    }
+    });
 
     // 初始检查成人API选中状态
     setTimeout(checkAdultAPIsSelected, 100);
@@ -2104,20 +2104,9 @@ let userFavorites = new Set(); // 存储用户收藏的key
 
 // 切换收藏状态
 // 优化：收藏时只存储必要字段，减少存储空间和网络传输
+// 新的API调用方式 - 业界标准方案
 async function toggleFavorite(key, videoData) {
     try {
-        // 检查用户是否已登录
-        if (!window.AuthSystem) {
-            showToast('认证系统未加载', 'error');
-            return;
-        }
-
-        const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
-        if (!isAuthenticated) {
-            showToast('请先登录后再使用收藏功能', 'error');
-            return;
-        }
-
         const isFavorited = userFavorites.has(key);
         const action = isFavorited ? 'remove' : 'add';
 
@@ -2135,11 +2124,9 @@ async function toggleFavorite(key, videoData) {
             };
         }
 
-        const response = await fetch('/proxy/api/user-favorites', {
+        // 使用统一的API请求方法
+        const response = await window.AuthSystem.apiRequest('/proxy/api/user-favorites', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
                 action: action,
                 key: key,
@@ -2147,21 +2134,30 @@ async function toggleFavorite(key, videoData) {
             })
         });
 
-        if (response.ok) {
-            if (action === 'add') {
-                userFavorites.add(key);
-            } else {
-                userFavorites.delete(key);
-            }
-            // 更新收藏按钮样式
-            updateFavoriteButtonStyle(key, action === 'add');
+        // 成功处理
+        if (action === 'add') {
+            userFavorites.add(key);
         } else {
-            const errorData = await response.json();
-            showToast(`操作失败: ${errorData.error || '未知错误'}`, 'error');
+            userFavorites.delete(key);
         }
+        updateFavoriteButtonStyle(key, action === 'add');
+        showToast(action === 'add' ? '已添加到收藏' : '已从收藏中移除', 'success');
+
     } catch (error) {
+        // 统一的错误处理
+        if (error instanceof AuthError) {
+            // 认证错误已被自动处理（跳转到登录页）
+            return;
+        }
+        
+        if (error instanceof ApiError) {
+            showToast(`操作失败: ${error.message}`, 'error');
+        } else if (error instanceof NetworkError) {
+            showToast('网络错误，请稍后重试', 'error');
+        } else {
+            showToast('未知错误，请稍后重试', 'error');
+        }
         console.error('收藏操作失败:', error);
-        showToast('网络错误，请稍后重试', 'error');
     }
 }
 
@@ -2182,35 +2178,32 @@ function updateFavoriteButtonStyle(key, isFavorited) {
     }
 }
 
-// 批量查询收藏状态
+// 批量查询收藏状态 - 新方案：直接调用，让后端验证
 async function batchCheckFavorites(keys) {
     try {
-        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
-            return;
-        }
-
-        const response = await fetch('/proxy/api/user-favorites/batch-check', {
+        const response = await window.AuthSystem.apiRequest('/proxy/api/user-favorites/batch-check', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify({ keys: keys })
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            userFavorites.clear();
-            Object.keys(data.favorites).forEach(key => {
-                if (data.favorites[key]) {
-                    userFavorites.add(key);
-                }
-            });
-            // 更新所有收藏按钮样式
-            keys.forEach(key => {
-                updateFavoriteButtonStyle(key, userFavorites.has(key));
-            });
-        }
+        const data = await response.json();
+        userFavorites.clear();
+        Object.keys(data.favorites).forEach(key => {
+            if (data.favorites[key]) {
+                userFavorites.add(key);
+            }
+        });
+        
+        // 更新所有收藏按钮样式
+        keys.forEach(key => {
+            updateFavoriteButtonStyle(key, userFavorites.has(key));
+        });
+        
     } catch (error) {
+        if (error instanceof AuthError) {
+            // 未认证，静默跳过（不显示错误）
+            return;
+        }
         console.error('批量查询收藏状态失败:', error);
     }
 }
@@ -2364,25 +2357,25 @@ function setupFavoritesRefreshBtn() {
 // 预加载用户收藏状态（不显示列表，只填充 userFavorites 集合）
 async function preloadUserFavorites() {
     try {
-        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
+        const response = await window.AuthSystem.apiRequest('/proxy/api/user-favorites');
+        const data = await response.json();
+        
+        // 清空并重新填充 userFavorites 集合
+        userFavorites.clear();
+        if (data.favorites && Array.isArray(data.favorites)) {
+            data.favorites.forEach(item => {
+                if (item.key) {
+                    userFavorites.add(item.key);
+                }
+            });
+        }
+        console.log('User favorites preloaded:', userFavorites.size, 'items');
+        
+    } catch (error) {
+        if (error instanceof AuthError) {
+            // 未认证，静默跳过
             return;
         }
-
-        const response = await fetch('/proxy/api/user-favorites');
-        if (response.ok) {
-            const data = await response.json();
-            // 清空并重新填充 userFavorites 集合
-            userFavorites.clear();
-            if (data.favorites && Array.isArray(data.favorites)) {
-                data.favorites.forEach(item => {
-                    if (item.key) {
-                        userFavorites.add(item.key);
-                    }
-                });
-            }
-            console.log('User favorites preloaded:', userFavorites.size, 'items');
-        }
-    } catch (error) {
         console.error('预加载收藏状态失败:', error);
     }
 }
@@ -2390,28 +2383,29 @@ async function preloadUserFavorites() {
 // 加载用户收藏列表
 async function loadUserFavorites(showFavorites = true) {
     try {
-        if (!window.AuthSystem || !window.AuthSystem.getCurrentUser()) {
+        const response = await window.AuthSystem.apiRequest('/proxy/api/user-favorites');
+        const data = await response.json();
+        
+        // 清空并重新填充 userFavorites 集合
+        userFavorites.clear();
+        if (data.favorites && Array.isArray(data.favorites)) {
+            data.favorites.forEach(item => {
+                if (item.key) {
+                    userFavorites.add(item.key);
+                }
+            });
+        }
+        
+        // 只有在需要显示收藏列表时才调用 displayFavorites
+        if (showFavorites) {
+            displayFavorites(data.favorites);
+        }
+        
+    } catch (error) {
+        if (error instanceof AuthError) {
+            // 未认证，静默跳过
             return;
         }
-
-        const response = await fetch('/proxy/api/user-favorites');
-        if (response.ok) {
-            const data = await response.json();
-            // 清空并重新填充 userFavorites 集合
-            userFavorites.clear();
-            if (data.favorites && Array.isArray(data.favorites)) {
-                data.favorites.forEach(item => {
-                    if (item.key) {
-                        userFavorites.add(item.key);
-                    }
-                });
-            }
-            // 只有在需要显示收藏列表时才调用 displayFavorites
-            if (showFavorites) {
-                displayFavorites(data.favorites);
-            }
-        }
-    } catch (error) {
         console.error('加载收藏列表失败:', error);
     }
 }

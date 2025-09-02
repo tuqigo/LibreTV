@@ -406,9 +406,8 @@
     <script>
         window.addEventListener('DOMContentLoaded', async function() {
             try {
-                // 检查JWT认证状态
+                // 等待认证系统加载并检查状态
                 if (window.AuthSystem) {
-                    // 等待认证状态检查完成
                     const isAuthenticated = await window.AuthSystem.isUserAuthenticated();
                     if (isAuthenticated) {
                         const user = window.AuthSystem.getCurrentUser();

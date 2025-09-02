@@ -1,6 +1,29 @@
 // LibreTV JWT认证系统核心模块
 // 专注于认证状态管理和令牌处理
 
+// 自定义错误类 - 用于API请求的错误处理
+class AuthError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'AuthError';
+    }
+}
+
+class ApiError extends Error {
+    constructor(message, status) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
+}
+
+class NetworkError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'NetworkError';
+    }
+}
+
 const AUTH_CONFIG = {
     API_BASE_URL: '/proxy/api',
     TOKEN_REFRESH_INTERVAL: 4 * 60 * 1000, // 4分钟检查一次令牌
@@ -311,6 +334,22 @@ const pageInitializer = {
 
 
 // 公共函数
+// 保留简化的认证检查器 - 仅用于UI状态控制
+const authHelper = {
+    // 如果已认证则执行，否则静默跳过（用于UI状态控制）
+    ifAuthenticated(fn) {
+        if (isAuthenticated && currentUser) {
+            return fn();
+        }
+        return null;
+    },
+
+    // 同步检查认证状态（基于缓存）
+    isAuthenticatedSync() {
+        return isAuthenticated;
+    }
+};
+
 const publicAPI = {
     // 认证状态
     async isUserAuthenticated() {
@@ -327,9 +366,60 @@ const publicAPI = {
         return isAuthenticated ? currentUser : null;
     },
 
+    // 简化的认证助手（仅用于UI状态控制）
+    auth: authHelper,
+
     // 获取认证头（不再需要存储token）
     getAuthHeaders() {
         return { 'Content-Type': 'application/json' };
+    },
+
+    // 统一的API请求包装器 - 业界标准方案
+    async apiRequest(url, options = {}) {
+        const defaultOptions = {
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        };
+
+        try {
+            const response = await fetch(url, { ...defaultOptions, ...options });
+            
+            // 处理认证失败
+            if (response.status === 401) {
+                this.handleUnauthorized();
+                throw new AuthError('认证失败，请重新登录');
+            }
+            
+            // 处理其他HTTP错误
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new ApiError(errorData.message || `HTTP ${response.status}`, response.status);
+            }
+            
+            return response;
+        } catch (error) {
+            if (error instanceof AuthError || error instanceof ApiError) {
+                throw error;
+            }
+            throw new NetworkError('网络请求失败: ' + error.message);
+        }
+    },
+
+    // 处理认证失败的统一逻辑
+    handleUnauthorized() {
+        // 清理认证状态
+        authStorage.clear();
+        
+        // 只有不在认证页面时才跳转
+        if (utils.getPageType() !== PAGE_TYPES.AUTH) {
+            if (window.showToast) {
+                window.showToast('登录已过期，请重新登录', 'warning');
+            }
+            setTimeout(() => redirectManager.toAuth(), 1000);
+        }
     },
 
     // 操作
