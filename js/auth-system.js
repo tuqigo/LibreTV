@@ -26,7 +26,6 @@ class NetworkError extends Error {
 
 const AUTH_CONFIG = {
     API_BASE_URL: '/proxy/api',
-    TOKEN_REFRESH_INTERVAL: 4 * 60 * 1000, // 4分钟检查一次令牌（备用）
     REFRESH_BUFFER_SECONDS: 60, // 提前60秒刷新
 };
 
@@ -136,10 +135,9 @@ const authStorage = {
             userInfoLoaded = false; // 重置加载标记
             tokenExpiresAt = null; // 🎯 清除过期时间
 
-            // 清除定时器
+            // 清除智能刷新定时器
             if (tokenRefreshTimer) {
                 clearTimeout(tokenRefreshTimer);
-                clearInterval(tokenRefreshTimer);
                 tokenRefreshTimer = null;
             }
         } catch (error) {
@@ -238,19 +236,16 @@ const tokenManager = {
         }, delayMs);
     },
 
+    // 🎯 简化：只有在已有过期时间时才启动定时器
     startRefreshTimer() {
-        // 如果已经有过期时间，直接调度
         if (tokenExpiresAt && tokenExpiresAt > Date.now()) {
             const remaining = (tokenExpiresAt - Date.now()) / 1000;
             if (remaining > AUTH_CONFIG.REFRESH_BUFFER_SECONDS) {
-                console.log('使用已有过期时间设置智能刷新');
+                console.log('启动智能刷新定时器');
                 this.scheduleNextRefresh(remaining);
-                return;
             }
         }
-
-        // 🎯 没有过期时间时，等待下次refresh()调用时自动设置
-        console.log('等待下次refresh调用时自动设置智能刷新...');
+        // 没有过期时间时什么都不做，等待refresh()调用
     }
 };
 
@@ -324,7 +319,7 @@ const pageInitializer = {
     initAuthPage() {
         // 检查是否已经认证，如果是则跳转到主页
         authChecker.checkExisting();
-        tokenManager.startRefreshTimer();
+        // 🎯 认证页面不需要定时刷新
     },
 
     async initMainPage() {
@@ -559,7 +554,7 @@ document.addEventListener('DOMContentLoaded', async () => await pageInitializer.
 
 window.addEventListener('beforeunload', () => {
     if (tokenRefreshTimer) {
-        clearInterval(tokenRefreshTimer);
+        clearTimeout(tokenRefreshTimer);
         tokenRefreshTimer = null;
     }
     window.authSystemInitialized = false;
@@ -572,4 +567,4 @@ window.checkAuthStatus = publicAPI.forceCheckAuth;
 window.logout = async () => await publicAPI.logout();
 window.emergencyStop = publicAPI.emergencyStop;
 
-console.log('LibreTV认证系统已加载，版本: 4.0.0');
+console.log('LibreTV认证系统已加载，版本: 5.0.0 - 纯智能刷新');
