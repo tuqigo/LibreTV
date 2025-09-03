@@ -61,7 +61,8 @@ class AuthFormManager {
             const data = await response.json();
             
             if (response.ok && data.expires_in) {
-                if (window.AuthSystem && await window.AuthSystem.handleAuthSuccess()) {
+                // 🎯 传递过期时间给认证系统
+                if (window.AuthSystem && await window.AuthSystem.handleAuthSuccess(data.expires_in)) {
                     this.showSuccess('登录成功，正在跳转...');
                 } else {
                     this.showError('登录成功但处理失败');
@@ -126,7 +127,8 @@ class AuthFormManager {
             const data = await response.json();
             
             if (response.ok && data.expires_in) {
-                if (window.AuthSystem && await window.AuthSystem.handleAuthSuccess()) {
+                // 🎯 传递过期时间给认证系统
+                if (window.AuthSystem && await window.AuthSystem.handleAuthSuccess(data.expires_in)) {
                     this.showSuccess('注册成功，正在跳转...');
                 } else {
                     this.showError('注册成功但处理失败');
