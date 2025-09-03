@@ -1343,35 +1343,40 @@ function saveCurrentProgress() {
             const historyRaw = localStorage.getItem('viewingHistory');
             if (historyRaw) {
                 const history = JSON.parse(historyRaw);
-                        // 用 title + 集数索引唯一标识
-        const idx = history.findIndex(item =>
-            item.title === currentVideoTitle &&
-            (item.episodeIndex === undefined || item.episodeIndex === currentEpisodeIndex)
-        );
-        if (idx !== -1) {
-            // 只在进度有明显变化时才更新，减少写入
-            if (
-                Math.abs((history[idx].playbackPosition || 0) - currentTime) > 2 ||
-                Math.abs((history[idx].duration || 0) - duration) > 2
-            ) {
-                history[idx].playbackPosition = currentTime;
-                history[idx].duration = duration;
-                history[idx].timestamp = Date.now();
-                
-                // 确保vod_id和source_code信息保留
-                if (vodId && !history[idx].vod_id) {
-                    history[idx].vod_id = vodId;
+                // 用 title + 集数索引唯一标识
+                const idx = history.findIndex(item =>
+                    item.title === currentVideoTitle &&
+                    (item.episodeIndex === undefined || item.episodeIndex === currentEpisodeIndex)
+                );
+                if (idx !== -1) {
+                    // 只在进度有明显变化时才更新，减少写入
+                    if (
+                        Math.abs((history[idx].playbackPosition || 0) - currentTime) > 2 ||
+                        Math.abs((history[idx].duration || 0) - duration) > 2
+                    ) {
+                        history[idx].playbackPosition = currentTime;
+                        history[idx].duration = duration;
+                        history[idx].timestamp = Date.now();
+                        
+                        // 确保vod_id和source_code信息保留
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const vodId = urlParams.get('vod_id');
+                        const sourceCode = urlParams.get('source_code');
+                        
+                        if (vodId && !history[idx].vod_id) {
+                            history[idx].vod_id = vodId;
+                        }
+                        if (sourceCode && !history[idx].source_code) {
+                            history[idx].source_code = sourceCode;
+                        }
+                        
+                        localStorage.setItem('viewingHistory', JSON.stringify(history));
+                        console.log(`已更新历史记录进度: ${currentTime.toFixed(1)}s / ${duration.toFixed(1)}s`);
+                    }
                 }
-                if (sourceCode && !history[idx].source_code) {
-                    history[idx].source_code = sourceCode;
-                }
-                
-                localStorage.setItem('viewingHistory', JSON.stringify(history));
-            }
-        }
             }
         } catch (e) {
-            // 忽略 viewingHistory 更新错误
+            console.warn('更新 viewingHistory 进度失败:', e);
         }
     } catch (e) {
         console.error('保存播放进度失败', e);

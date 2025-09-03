@@ -57,11 +57,18 @@ async function syncConfig(needShowToast = false) {
                 if (curEp > prevEp) {
                     map.set(id, item);
                 } else if (curEp === prevEp) {
-                    // 再比较 playbackPosition
-                    const curPos = item.playbackPosition || 0;
-                    const prevPos = prev.playbackPosition || 0;
-                    if (curPos > prevPos) {
+                    // 如果集数相同，比较时间戳，保留最新的
+                    const curTime = item.timestamp || 0;
+                    const prevTime = prev.timestamp || 0;
+                    if (curTime > prevTime) {
                         map.set(id, item);
+                    } else if (curTime === prevTime) {
+                        // 时间戳相同时才比较播放进度
+                        const curPos = item.playbackPosition || 0;
+                        const prevPos = prev.playbackPosition || 0;
+                        if (curPos > prevPos) {
+                            map.set(id, item);
+                        }
                     }
                 }
             }
