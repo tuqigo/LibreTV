@@ -3,7 +3,17 @@ function toggleSettings(e) {
     // 阻止事件冒泡，防止触发document的点击事件
     e && e.stopPropagation();
     const panel = document.getElementById('settingsPanel');
-    panel.classList.toggle('show');
+    const isShowing = panel.classList.contains('show');
+    
+    if (isShowing) {
+        // 隐藏面板
+        panel.classList.remove('show');
+        panel.setAttribute('aria-hidden', 'true');
+    } else {
+        // 显示面板
+        panel.classList.add('show');
+        panel.setAttribute('aria-hidden', 'false');
+    }
 }
 
 // 改进的Toast显示函数 - 支持队列显示多个Toast
@@ -314,10 +324,16 @@ function toggleHistory(e) {
 
     const panel = document.getElementById('historyPanel');
     if (panel) {
-        panel.classList.toggle('show');
-
-        // 如果打开了历史记录面板，则加载历史数据
-        if (panel.classList.contains('show')) {
+        const isShowing = panel.classList.contains('show');
+        
+        if (isShowing) {
+            // 隐藏历史面板
+            panel.classList.remove('show');
+            panel.setAttribute('aria-hidden', 'true');
+        } else {
+            // 显示历史面板
+            panel.classList.add('show');
+            panel.setAttribute('aria-hidden', 'false');
             loadViewingHistory();
         }
 
@@ -325,6 +341,7 @@ function toggleHistory(e) {
         const settingsPanel = document.getElementById('settingsPanel');
         if (settingsPanel && settingsPanel.classList.contains('show')) {
             settingsPanel.classList.remove('show');
+            settingsPanel.setAttribute('aria-hidden', 'true');
         }
     }
 }
